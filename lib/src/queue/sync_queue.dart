@@ -8,7 +8,7 @@ import '../core/sync_operation.dart';
 /// only; it does not survive a process restart.
 abstract interface class SyncQueue {
   /// Persists a new operation. Throws [CyclicDependencyException] if
-  /// [operation.dependencyIds] would introduce a circular dependency.
+  /// the operation's [SyncOperation.dependencyIds] would introduce a cycle.
   Future<void> enqueue(SyncOperation operation);
 
   Future<SyncOperation?> getOperation(String operationId);
@@ -18,7 +18,7 @@ abstract interface class SyncQueue {
   /// MVP doesn't need yet.
   Future<List<SyncOperation>> all();
 
-  /// Operations whose [SyncOperation.dependencyIds] contains [operationId].
+  /// Operations whose [SyncOperation.dependencyIds] contains `operationId`.
   Future<List<SyncOperation>> dependentsOf(String operationId);
 
   Future<void> updateOperation(SyncOperation operation);

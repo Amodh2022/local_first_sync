@@ -47,7 +47,7 @@ class SyncOperation {
   final int retryCount;
   final SyncStatus status;
 
-  /// Other operations' [operationId]s that must reach [SyncStatus.synced]
+  /// Other operations' ids that must reach [SyncStatus.synced]
   /// before this one is eligible to sync.
   final List<String> dependencyIds;
 
@@ -175,7 +175,7 @@ class SyncOperation {
   }
 
   /// Drain order: highest [priority] first, then strict FIFO by [createdAt],
-  /// then by [operationId] so the order is total and stable across restarts
+  /// then by [SyncOperation.operationId] so the order is total and stable across restarts
   /// (two operations can share a timestamp).
   static int compare(SyncOperation a, SyncOperation b) {
     final byPriority = b.priority.compareTo(a.priority);

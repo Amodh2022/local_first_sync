@@ -20,7 +20,7 @@ abstract interface class LocalStore<T extends Identifiable> {
   ///
   /// Implementations that can't do this atomically may implement it as
   /// delete-then-insert; either way it must never leave both [oldId] and
-  /// [newItem.id] present at once.
+  /// `newItem.id` present at once.
   Future<void> reassignId(String oldId, T newItem);
 
   /// Emits the current snapshot immediately on listen, then again whenever

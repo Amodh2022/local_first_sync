@@ -92,6 +92,13 @@ final ada = await users.get('u1');
 users.watch().listen((all) => print('users: $all'));
 ```
 
+> **One gotcha worth knowing up front.** If you don't pass a `connectivity:` monitor,
+> `OfflineSync` uses `ManualConnectivityMonitor`, which reports **online** and only changes
+> when you call `setOnline()`/`setOffline()` yourself — it never detects anything. That's a
+> fine default (the engine just always attempts, and failures retry), but for a real app
+> wire up `ReachabilityConnectivityMonitor` with a probe against your own backend. See
+> [Reachability, not "is wifi on"](#reachability-not-is-wifi-on).
+
 ### Dependency-ordered writes + temporary ids
 
 ```dart

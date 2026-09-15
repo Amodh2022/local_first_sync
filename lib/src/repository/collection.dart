@@ -47,7 +47,8 @@ class Collection<T extends Identifiable> {
   /// Inserts or updates [item] locally (visible to [watch]/[watchById]
   /// immediately) and enqueues the corresponding remote operation.
   ///
-  /// Pass [dependsOn] — [operationId]s returned by earlier [save]/[delete]
+  /// Pass [dependsOn] — [SyncOperation.operationId]s returned by earlier
+  /// [save]/[delete]
   /// calls — when this entity structurally depends on another one still
   /// syncing (e.g. an `OrderItem` referencing an `Order`'s id). See
   /// DESIGN.md §6 for how temporary ids get rewritten into these dependents
