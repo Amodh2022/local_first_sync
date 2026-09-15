@@ -262,8 +262,8 @@ class SyncEngine {
     final dependedOn = <String>{for (final op in all) ...op.dependencyIds};
     var removed = 0;
     for (final op in all) {
-      final completed = op.status == SyncStatus.synced ||
-          op.status == SyncStatus.cancelled;
+      final completed =
+          op.status == SyncStatus.synced || op.status == SyncStatus.cancelled;
       if (!completed) continue;
       if (cutoff != null && op.updatedAt.isAfter(cutoff)) continue;
       // Keep anything still referenced, so `explain` can still name the
@@ -424,31 +424,35 @@ class SyncEngine {
       return false;
     }
 
-    final syncingOp = op.copyWith(status: SyncStatus.syncing, updatedAt: DateTime.now());
+    final syncingOp =
+        op.copyWith(status: SyncStatus.syncing, updatedAt: DateTime.now());
     await _queue.updateOperation(syncingOp);
     _eventsController.add(OperationStarted(syncingOp));
 
     try {
-      final payload = tempIds.rewritePayload(op.payload, binding.referenceFields);
+      final payload =
+          tempIds.rewritePayload(op.payload, binding.referenceFields);
 
       switch (op.type) {
         case SyncOperationType.create:
-          final result = await _withTimeout(() => binding.remoteCreate(payload));
+          final result =
+              await _withTimeout(() => binding.remoteCreate(payload));
           final finalId = await binding.applyCreateResult(op.entityId, result);
           if (finalId != op.entityId) {
             tempIds.register(op.entityId, finalId);
             await _rewriteDependentPayloads(op.operationId);
           }
         case SyncOperationType.update:
-          final result =
-              await _withTimeout(() => binding.remoteUpdate(op.entityId, payload));
+          final result = await _withTimeout(
+              () => binding.remoteUpdate(op.entityId, payload));
           await binding.applyUpdateResult(op.entityId, result);
         case SyncOperationType.delete:
           await _withTimeout(() => binding.remoteDelete(op.entityId));
           await binding.applyDeleteResult(op.entityId);
       }
 
-      final synced = syncingOp.copyWith(status: SyncStatus.synced, updatedAt: DateTime.now());
+      final synced = syncingOp.copyWith(
+          status: SyncStatus.synced, updatedAt: DateTime.now());
       await _queue.updateOperation(synced);
       _eventsController.add(OperationSucceeded(synced));
       return true;
@@ -464,12 +468,14 @@ class SyncEngine {
   Future<bool> _handleConflict(SyncOperation op, ConflictFailure error) async {
     _eventsController.add(ConflictDetected(op, error.remoteValue));
     final binding = _bindings[op.collection]!;
-    final resolvedPayload = await binding.resolveConflict(op, error.remoteValue);
+    final resolvedPayload =
+        await binding.resolveConflict(op, error.remoteValue);
 
     if (resolvedPayload == null) {
       // Remote value is authoritative and local storage was already updated
       // to match it — this operation's job is done.
-      final synced = op.copyWith(status: SyncStatus.synced, updatedAt: DateTime.now());
+      final synced =
+          op.copyWith(status: SyncStatus.synced, updatedAt: DateTime.now());
       await _queue.updateOperation(synced);
       return true;
     }
@@ -531,16 +537,20 @@ class SyncEngine {
     for (final dep in await _queue.dependentsOf(operationId)) {
       final binding = _bindings[dep.collection];
       if (binding == null) continue;
-      final rewritten = tempIds.rewritePayload(dep.payload, binding.referenceFields);
+      final rewritten =
+          tempIds.rewritePayload(dep.payload, binding.referenceFields);
       if (!identical(rewritten, dep.payload)) {
-        await _queue.updateOperation(dep.copyWith(payload: rewritten, updatedAt: DateTime.now()));
+        await _queue.updateOperation(
+            dep.copyWith(payload: rewritten, updatedAt: DateTime.now()));
       }
     }
   }
 
   Future<void> _blockDependents(String operationId, String reason) async {
     for (final dep in await _queue.dependentsOf(operationId)) {
-      if (dep.status == SyncStatus.blocked && dep.blockedReason == reason) continue;
+      if (dep.status == SyncStatus.blocked && dep.blockedReason == reason) {
+        continue;
+      }
       final blocked = dep.copyWith(
         status: SyncStatus.blocked,
         blockedReason: reason,
@@ -625,7 +635,8 @@ class SyncEngine {
         _eventsController.add(PullFailed(binding.name, e));
       } catch (e) {
         _lastError = e.toString();
-        _eventsController.add(PullFailed(binding.name, UnknownFailure(e.toString())));
+        _eventsController
+            .add(PullFailed(binding.name, UnknownFailure(e.toString())));
       }
     }
     _notifyRuntimeChange();

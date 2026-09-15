@@ -55,7 +55,8 @@ class SyncInspector {
           o.status == SyncStatus.queued ||
           o.status == SyncStatus.created),
       syncing: count((o) => o.status == SyncStatus.syncing),
-      failed: count((o) => o.status == SyncStatus.failed || o.status == SyncStatus.retry),
+      failed: count(
+          (o) => o.status == SyncStatus.failed || o.status == SyncStatus.retry),
       blocked: count((o) => o.status == SyncStatus.blocked),
       synced: count((o) => o.status == SyncStatus.synced),
       operations: ops,
@@ -70,7 +71,8 @@ class SyncInspector {
   /// a failure to a bare "Sync failed."
   String explain(SyncOperation operation) {
     return switch (operation.status) {
-      SyncStatus.synced => '${operation.collection}/${operation.entityId} is synced.',
+      SyncStatus.synced =>
+        '${operation.collection}/${operation.entityId} is synced.',
       SyncStatus.blocked =>
         'BLOCKED: ${operation.blockedReason ?? 'waiting on a dependency.'}',
       SyncStatus.failed => 'FAILED permanently after ${operation.retryCount} '

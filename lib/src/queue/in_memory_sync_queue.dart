@@ -33,7 +33,9 @@ class InMemorySyncQueue implements SyncQueue {
 
   @override
   Future<List<SyncOperation>> dependentsOf(String operationId) async =>
-      _snapshot().where((op) => op.dependencyIds.contains(operationId)).toList();
+      _snapshot()
+          .where((op) => op.dependencyIds.contains(operationId))
+          .toList();
 
   @override
   Future<void> updateOperation(SyncOperation operation) async {
@@ -50,8 +52,8 @@ class InMemorySyncQueue implements SyncQueue {
   @override
   Stream<List<SyncOperation>> watchAll() => Stream.multi((controller) {
         controller.add(_snapshot());
-        final sub =
-            _changes.stream.listen(controller.add, onError: controller.addError);
+        final sub = _changes.stream
+            .listen(controller.add, onError: controller.addError);
         controller.onCancel = sub.cancel;
       });
 }

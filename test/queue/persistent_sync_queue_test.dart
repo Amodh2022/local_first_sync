@@ -56,7 +56,8 @@ void main() {
       expect(restored.rollbackPayload, {'id': 'u_a', 'name': 'Previous'});
     });
 
-    test('an operation that was in flight when the process died comes back '
+    test(
+        'an operation that was in flight when the process died comes back '
         'ready, not stuck syncing', () {
       final inFlight = _op('a', status: SyncStatus.syncing);
       final restored = SyncOperation.fromJson(inFlight.toJson());

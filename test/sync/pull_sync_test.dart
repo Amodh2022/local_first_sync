@@ -94,8 +94,9 @@ void main() {
 
   test('a pull failure is surfaced as an event, not thrown', () async {
     final failing = InMemoryRemoteStore<TestUser>(
-      failureInjector: (op, _) =>
-          op == 'fetchChanges' ? const NetworkFailure('no route to host') : null,
+      failureInjector: (op, _) => op == 'fetchChanges'
+          ? const NetworkFailure('no route to host')
+          : null,
     );
     final failingSync = OfflineSync(connectivity: connectivity);
     failingSync.registerCollection<TestUser>(

@@ -114,8 +114,8 @@ void main() {
 
       sync.pause();
       final parentId = await users.save(TestUser(id: '1', name: 'Parent'));
-      final childId =
-          await users.save(TestUser(id: '2', name: 'Child'), dependsOn: [parentId]);
+      final childId = await users
+          .save(TestUser(id: '2', name: 'Child'), dependsOn: [parentId]);
 
       await sync.cancelOperation(parentId);
       sync.resume();
@@ -156,7 +156,9 @@ void main() {
       final sync = build(
         config: const SyncConfig(retainSyncedOperations: Duration.zero),
       );
-      await sync.collection<TestUser>('users').save(TestUser(id: '1', name: 'A'));
+      await sync
+          .collection<TestUser>('users')
+          .save(TestUser(id: '1', name: 'A'));
       await sync.syncNow();
 
       expect(await sync.queue.all(), isEmpty,
@@ -228,8 +230,9 @@ void main() {
           retryPolicy: RetryPolicy(jitter: 0),
         ),
       );
-      final opId =
-          await sync.collection<TestUser>('users').save(TestUser(id: '1', name: 'A'));
+      final opId = await sync
+          .collection<TestUser>('users')
+          .save(TestUser(id: '1', name: 'A'));
       await sync.syncNow();
 
       final op = await sync.queue.getOperation(opId);
@@ -356,7 +359,9 @@ void main() {
       expect(states, isNotEmpty);
       expect(states.last.unsynced, 0);
 
-      await sync.collection<TestUser>('users').save(TestUser(id: '1', name: 'A'));
+      await sync
+          .collection<TestUser>('users')
+          .save(TestUser(id: '1', name: 'A'));
       await Future<void>.delayed(Duration.zero);
 
       expect(states.last.unsynced, 1,

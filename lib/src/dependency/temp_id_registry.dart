@@ -44,7 +44,8 @@ class TempIdRegistry {
           changed = true;
         }
       } else if (value is List) {
-        final resolvedList = value.map((v) => v is String ? resolve(v) : v).toList();
+        final resolvedList =
+            value.map((v) => v is String ? resolve(v) : v).toList();
         if (!_listEquals(resolvedList, value)) {
           result[field] = resolvedList;
           changed = true;

@@ -74,8 +74,8 @@ void main() {
   });
 
   test('save honors priority', () async {
-    final opId = await rawUsers.save(TestUser(id: '1', name: 'Urgent'),
-        priority: 10);
+    final opId =
+        await rawUsers.save(TestUser(id: '1', name: 'Urgent'), priority: 10);
     expect((await queue.getOperation(opId))!.priority, 10);
   });
 
@@ -99,7 +99,8 @@ void main() {
         () async {
       final createOpId = await users.save(TestUser(id: '1', name: 'A'));
       final createOp = await queue.getOperation(createOpId);
-      await queue.updateOperation(createOp!.copyWith(status: SyncStatus.synced));
+      await queue
+          .updateOperation(createOp!.copyWith(status: SyncStatus.synced));
 
       final updateOpId = await users.save(TestUser(id: '1', name: 'B'));
       expect(await queue.all(), hasLength(2));
@@ -118,7 +119,8 @@ void main() {
     test('delete after a synced create still enqueues the delete', () async {
       final createOpId = await users.save(TestUser(id: '1', name: 'A'));
       final createOp = await queue.getOperation(createOpId);
-      await queue.updateOperation(createOp!.copyWith(status: SyncStatus.synced));
+      await queue
+          .updateOperation(createOp!.copyWith(status: SyncStatus.synced));
 
       final deleteOpId = await users.delete('1');
       expect((await queue.getOperation(deleteOpId))!.type,
@@ -150,7 +152,8 @@ void main() {
     });
   });
 
-  test('watch emits the current snapshot immediately, then on every change', () async {
+  test('watch emits the current snapshot immediately, then on every change',
+      () async {
     final emissions = <List<TestUser>>[];
     final sub = users.watch().listen(emissions.add);
     addTearDown(sub.cancel);

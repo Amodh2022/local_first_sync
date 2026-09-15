@@ -8,7 +8,8 @@ class TestUser implements Identifiable {
   final String name;
   final DateTime? updatedAt;
 
-  TestUser copyWith({String? id, String? name, DateTime? updatedAt}) => TestUser(
+  TestUser copyWith({String? id, String? name, DateTime? updatedAt}) =>
+      TestUser(
         id: id ?? this.id,
         name: name ?? this.name,
         updatedAt: updatedAt ?? this.updatedAt,

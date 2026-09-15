@@ -64,7 +64,8 @@ class Collection<T extends Identifiable> {
     int priority = 0,
   }) async {
     final existing = await _localStore.getById(item.id);
-    final type = existing == null ? SyncOperationType.create : SyncOperationType.update;
+    final type =
+        existing == null ? SyncOperationType.create : SyncOperationType.update;
     // Captured before the local write, so a permanent failure can put the
     // entity back the way the user last saw it synced.
     final rollbackPayload =

@@ -52,7 +52,8 @@ void main() {
       referenceFields: const ['orderId'],
     );
 
-    final orderOpId = await orders.save(TestUser(id: 'temp_order_1', name: 'Order'));
+    final orderOpId =
+        await orders.save(TestUser(id: 'temp_order_1', name: 'Order'));
     final itemOpId = await items.save(
       TestOrderItem(id: 'item_1', orderId: 'temp_order_1', sku: 'sku'),
       dependsOn: [orderOpId],
@@ -72,7 +73,8 @@ void main() {
     expect((await _findOp(sync, itemOpId)).status, SyncStatus.synced);
   });
 
-  test('a transient failure retries with backoff and eventually succeeds', () async {
+  test('a transient failure retries with backoff and eventually succeeds',
+      () async {
     var attempts = 0;
     final localUsers = InMemoryLocalStore<TestUser>();
     final remoteUsers = InMemoryRemoteStore<TestUser>(
@@ -114,7 +116,8 @@ void main() {
     expect(attempts, 3);
   });
 
-  test('a permanently failed operation blocks its dependents with a reason', () async {
+  test('a permanently failed operation blocks its dependents with a reason',
+      () async {
     final localOrders = InMemoryLocalStore<TestUser>();
     final remoteOrders = InMemoryRemoteStore<TestUser>(
       failureInjector: (op, item) => const ValidationFailure('bad order'),
@@ -137,7 +140,8 @@ void main() {
       referenceFields: const ['orderId'],
     );
 
-    final orderOpId = await orders.save(TestUser(id: 'temp_order_1', name: 'Order'));
+    final orderOpId =
+        await orders.save(TestUser(id: 'temp_order_1', name: 'Order'));
     final itemOpId = await items.save(
       TestOrderItem(id: 'item_1', orderId: 'temp_order_1', sku: 'sku'),
       dependsOn: [orderOpId],

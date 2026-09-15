@@ -30,17 +30,25 @@ void main() {
     });
 
     test('true for a self-dependency', () {
-      expect(DependencyGraph.wouldCreateCycle([], _op('a', deps: ['a'])), isTrue);
+      expect(
+          DependencyGraph.wouldCreateCycle([], _op('a', deps: ['a'])), isTrue);
     });
 
     test('true for a->b->a', () {
-      final existing = [_op('a', deps: ['b'])];
-      expect(DependencyGraph.wouldCreateCycle(existing, _op('b', deps: ['a'])), isTrue);
+      final existing = [
+        _op('a', deps: ['b'])
+      ];
+      expect(DependencyGraph.wouldCreateCycle(existing, _op('b', deps: ['a'])),
+          isTrue);
     });
 
     test('false for a valid chain a->b->c', () {
-      final existing = [_op('a'), _op('b', deps: ['a'])];
-      expect(DependencyGraph.wouldCreateCycle(existing, _op('c', deps: ['b'])), isFalse);
+      final existing = [
+        _op('a'),
+        _op('b', deps: ['a'])
+      ];
+      expect(DependencyGraph.wouldCreateCycle(existing, _op('c', deps: ['b'])),
+          isFalse);
     });
   });
 

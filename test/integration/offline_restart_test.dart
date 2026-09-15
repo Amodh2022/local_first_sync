@@ -14,7 +14,8 @@ void main() {
     final remoteUsers = InMemoryRemoteStore<TestUser>();
     final sharedQueue = InMemorySyncQueue();
 
-    var connectivity = ManualConnectivityMonitor(initial: ConnectivityState.offline);
+    var connectivity =
+        ManualConnectivityMonitor(initial: ConnectivityState.offline);
     var sync = OfflineSync(queue: sharedQueue, connectivity: connectivity);
     var users = sync.registerCollection<TestUser>(
       name: 'users',
@@ -31,7 +32,8 @@ void main() {
 
     // --- simulated app restart: new engine, same underlying "persisted" state ---
     await sync.dispose();
-    connectivity = ManualConnectivityMonitor(initial: ConnectivityState.offline);
+    connectivity =
+        ManualConnectivityMonitor(initial: ConnectivityState.offline);
     sync = OfflineSync(queue: sharedQueue, connectivity: connectivity);
     users = sync.registerCollection<TestUser>(
       name: 'users',

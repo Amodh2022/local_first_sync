@@ -27,7 +27,8 @@ class Order implements Identifiable {
   final String id;
   final String customerName;
 
-  Order copyWith({String? id}) => Order(id: id ?? this.id, customerName: customerName);
+  Order copyWith({String? id}) =>
+      Order(id: id ?? this.id, customerName: customerName);
 
   @override
   String toString() => 'Order($id, customer: $customerName)';
@@ -37,12 +38,16 @@ class OrderSerializer implements Serializer<Order> {
   const OrderSerializer();
 
   @override
-  Map<String, Object?> encode(Order value) =>
-      {'id': value.id, 'customerName': value.customerName};
+  Map<String, Object?> encode(Order value) => {
+    'id': value.id,
+    'customerName': value.customerName,
+  };
 
   @override
-  Order decode(Map<String, Object?> data) =>
-      Order(id: data['id']! as String, customerName: data['customerName']! as String);
+  Order decode(Map<String, Object?> data) => Order(
+    id: data['id']! as String,
+    customerName: data['customerName']! as String,
+  );
 }
 
 class OrderItem implements Identifiable {
@@ -61,15 +66,18 @@ class OrderItemSerializer implements Serializer<OrderItem> {
   const OrderItemSerializer();
 
   @override
-  Map<String, Object?> encode(OrderItem value) =>
-      {'id': value.id, 'orderId': value.orderId, 'sku': value.sku};
+  Map<String, Object?> encode(OrderItem value) => {
+    'id': value.id,
+    'orderId': value.orderId,
+    'sku': value.sku,
+  };
 
   @override
   OrderItem decode(Map<String, Object?> data) => OrderItem(
-        id: data['id']! as String,
-        orderId: data['orderId']! as String,
-        sku: data['sku']! as String,
-      );
+    id: data['id']! as String,
+    orderId: data['orderId']! as String,
+    sku: data['sku']! as String,
+  );
 }
 
 Future<void> main() async {
@@ -98,13 +106,17 @@ Future<void> _basicSaveGetWatchDemo() async {
     serializer: const OrderSerializer(),
   );
 
-  final sub = orders.watch().listen((all) => print('  [watch] ${all.length} order(s): $all'));
+  final sub = orders.watch().listen(
+    (all) => print('  [watch] ${all.length} order(s): $all'),
+  );
 
   await orders.save(Order(id: 'order_1', customerName: 'Amodh'));
   print('  get("order_1") right after save: ${await orders.get('order_1')}');
 
   await sync.syncNow();
-  print('  Synced. Snapshot: ${(await sync.inspector().snapshot()).synced} synced op(s)\n');
+  print(
+    '  Synced. Snapshot: ${(await sync.inspector().snapshot()).synced} synced op(s)\n',
+  );
 
   await sub.cancel();
   await sync.dispose();
@@ -124,9 +136,13 @@ Future<void> _dependencyAndTempIdDemo() async {
     latency: const Duration(milliseconds: 30),
   );
   final localItems = InMemoryLocalStore<OrderItem>();
-  final remoteItems = InMemoryRemoteStore<OrderItem>(latency: const Duration(milliseconds: 30));
+  final remoteItems = InMemoryRemoteStore<OrderItem>(
+    latency: const Duration(milliseconds: 30),
+  );
 
-  final connectivity = ManualConnectivityMonitor(initial: ConnectivityState.offline);
+  final connectivity = ManualConnectivityMonitor(
+    initial: ConnectivityState.offline,
+  );
   final sync = OfflineSync(connectivity: connectivity);
 
   final orders = sync.registerCollection<Order>(
@@ -149,7 +165,9 @@ Future<void> _dependencyAndTempIdDemo() async {
   final sub = sync.events.listen((e) => print('  [event] ${e.runtimeType}'));
 
   // The app is offline. Both writes are visible locally immediately.
-  final orderOpId = await orders.save(Order(id: 'temp_order_1', customerName: 'Amodh'));
+  final orderOpId = await orders.save(
+    Order(id: 'temp_order_1', customerName: 'Amodh'),
+  );
   final itemOpId = await orderItems.save(
     OrderItem(id: 'item_1', orderId: 'temp_order_1', sku: 'WIDGET-1'),
     dependsOn: [orderOpId],
@@ -157,20 +175,30 @@ Future<void> _dependencyAndTempIdDemo() async {
 
   print('  Local order right after save: ${await orders.get('temp_order_1')}');
   var snapshot = await sync.inspector().snapshot();
-  final itemOp = snapshot.operations.firstWhere((o) => o.operationId == itemOpId);
-  print('  Inspector (offline): pending=${snapshot.pending} blocked=${snapshot.blocked}');
+  final itemOp = snapshot.operations.firstWhere(
+    (o) => o.operationId == itemOpId,
+  );
+  print(
+    '  Inspector (offline): pending=${snapshot.pending} blocked=${snapshot.blocked}',
+  );
   print('  Why is the item not synced? ${sync.inspector().explain(itemOp)}');
 
   print('  ...network returns...');
   connectivity.setOnline();
   await sync.syncNow();
 
-  print('  Local order after sync (id was reassigned by the server): '
-      '${await orders.get('srv_temp_order_1')}');
-  print('  Order item queued payload was rewritten to the real order id: '
-      '${remoteItems.peek('item_1')}');
+  print(
+    '  Local order after sync (id was reassigned by the server): '
+    '${await orders.get('srv_temp_order_1')}',
+  );
+  print(
+    '  Order item queued payload was rewritten to the real order id: '
+    '${remoteItems.peek('item_1')}',
+  );
   snapshot = await sync.inspector().snapshot();
-  print('  Inspector (after sync): synced=${snapshot.synced} blocked=${snapshot.blocked}\n');
+  print(
+    '  Inspector (after sync): synced=${snapshot.synced} blocked=${snapshot.blocked}\n',
+  );
 
   await sub.cancel();
   await sync.dispose();
@@ -209,13 +237,19 @@ Future<void> _retryDemo() async {
     serializer: const OrderSerializer(),
   );
 
-  final opId = await orders.save(Order(id: 'order_1', customerName: 'Retry Demo'));
+  final opId = await orders.save(
+    Order(id: 'order_1', customerName: 'Retry Demo'),
+  );
 
-  var op = (await sync.inspector().snapshot()).operations.firstWhere((o) => o.operationId == opId);
+  var op = (await sync.inspector().snapshot()).operations.firstWhere(
+    (o) => o.operationId == opId,
+  );
   var guard = 0;
   while (op.status != SyncStatus.synced && guard < 20) {
     await sync.syncNow();
-    op = (await sync.inspector().snapshot()).operations.firstWhere((o) => o.operationId == opId);
+    op = (await sync.inspector().snapshot()).operations.firstWhere(
+      (o) => o.operationId == opId,
+    );
     print('  ${sync.inspector().explain(op)}');
     if (op.status == SyncStatus.retry) {
       await Future<void>.delayed(const Duration(milliseconds: 60));
@@ -239,8 +273,9 @@ Future<void> _conflictDemo() async {
     failureInjector: (op, item) => op == 'update'
         ? ConflictFailure(
             'a newer version exists on the server',
-            remoteValue: const OrderSerializer()
-                .encode(Order(id: 'order_1', customerName: 'Changed on another device')),
+            remoteValue: const OrderSerializer().encode(
+              Order(id: 'order_1', customerName: 'Changed on another device'),
+            ),
           )
         : null,
   );
@@ -254,10 +289,14 @@ Future<void> _conflictDemo() async {
     conflictResolver: const ServerWinsResolver<Order>(),
   );
 
-  await orders.save(Order(id: 'order_1', customerName: 'Changed locally, offline'));
+  await orders.save(
+    Order(id: 'order_1', customerName: 'Changed locally, offline'),
+  );
   await sync.syncNow();
 
-  print('  After conflict (server-wins policy): ${await orders.get('order_1')}\n');
+  print(
+    '  After conflict (server-wins policy): ${await orders.get('order_1')}\n',
+  );
   await sync.dispose();
 }
 
@@ -266,8 +305,9 @@ Future<void> _conflictDemo() async {
 Future<void> _coalescingDemo() async {
   print('--- 4. Operation coalescing ---');
 
-  final connectivity =
-      ManualConnectivityMonitor(initial: ConnectivityState.offline);
+  final connectivity = ManualConnectivityMonitor(
+    initial: ConnectivityState.offline,
+  );
   final remote = InMemoryRemoteStore<Order>();
   final sync = OfflineSync(connectivity: connectivity);
   final orders = sync.registerCollection<Order>(
@@ -280,22 +320,28 @@ Future<void> _coalescingDemo() async {
   for (var i = 1; i <= 8; i++) {
     await orders.save(Order(id: 'order_1', customerName: 'Draft $i'));
   }
-  print('  8 offline edits queued as '
-      '${(await sync.queue.all()).length} operation(s)');
+  print(
+    '  8 offline edits queued as '
+    '${(await sync.queue.all()).length} operation(s)',
+  );
 
   // A record created and deleted before either reached the server is work
   // the backend should never hear about at all.
   await orders.save(Order(id: 'order_typo', customerName: 'Mistake'));
   await orders.delete('order_typo');
-  print('  create-then-delete while offline left '
-      '${(await sync.queue.all()).where((o) => o.entityId == 'order_typo').length}'
-      ' operation(s) for that record');
+  print(
+    '  create-then-delete while offline left '
+    '${(await sync.queue.all()).where((o) => o.entityId == 'order_typo').length}'
+    ' operation(s) for that record',
+  );
 
   connectivity.setOnline();
   await sync.syncNow();
   print('  Server received: ${remote.peek('order_1')}');
-  print('  Server heard about the typo record: '
-      '${remote.peek('order_typo') != null}\n');
+  print(
+    '  Server heard about the typo record: '
+    '${remote.peek('order_typo') != null}\n',
+  );
 
   await sync.dispose();
 }
@@ -308,14 +354,15 @@ Future<void> _persistenceDemo() async {
   // Stands in for SharedPreferences / a file / a Drift table.
   String? storageSlot;
   JsonBlobOperationStore openStore() => JsonBlobOperationStore(
-        readBlob: () async => storageSlot,
-        writeBlob: (json) async => storageSlot = json,
-      );
+    readBlob: () async => storageSlot,
+    writeBlob: (json) async => storageSlot = json,
+  );
 
   final localStore = InMemoryLocalStore<Order>();
   final remote = InMemoryRemoteStore<Order>();
-  final connectivity =
-      ManualConnectivityMonitor(initial: ConnectivityState.offline);
+  final connectivity = ManualConnectivityMonitor(
+    initial: ConnectivityState.offline,
+  );
 
   // --- first run: save offline, then "crash" ---
   var sync = OfflineSync(
@@ -330,8 +377,10 @@ Future<void> _persistenceDemo() async {
   );
   await orders.save(Order(id: 'order_1', customerName: 'Written on a plane'));
   await sync.dispose();
-  print('  App killed while offline. Server has it: '
-      '${remote.peek('order_1') != null}');
+  print(
+    '  App killed while offline. Server has it: '
+    '${remote.peek('order_1') != null}',
+  );
 
   // --- second run: same storage, now online ---
   connectivity.setOnline();
@@ -345,8 +394,10 @@ Future<void> _persistenceDemo() async {
     remoteStore: remote,
     serializer: const OrderSerializer(),
   );
-  print('  Restarted with ${(await sync.queue.all()).length} recovered '
-      'operation(s)');
+  print(
+    '  Restarted with ${(await sync.queue.all()).length} recovered '
+    'operation(s)',
+  );
   await sync.syncNow();
   print('  After restart the server has: ${remote.peek('order_1')}\n');
 
@@ -385,13 +436,17 @@ Future<void> _pauseAndManualRetryDemo() async {
 
   tokenIsValid = true;
   sync.resume();
-  print('  Resumed. Requeued ${await sync.retryAllFailed()} failed '
-      'operation(s).');
+  print(
+    '  Resumed. Requeued ${await sync.retryAllFailed()} failed '
+    'operation(s).',
+  );
 
   op = (await sync.queue.getOperation(opId))!;
   print('  ${sync.inspector().explain(op)}');
-  print('  Server now has both orders: '
-      '${remote.peek('order_1') != null && remote.peek('order_2') != null}\n');
+  print(
+    '  Server now has both orders: '
+    '${remote.peek('order_1') != null && remote.peek('order_2') != null}\n',
+  );
 
   await sync.dispose();
 }
@@ -401,8 +456,9 @@ Future<void> _pauseAndManualRetryDemo() async {
 Future<void> _pullDemo() async {
   print('--- 7. Pull sync ---');
 
-  final connectivity =
-      ManualConnectivityMonitor(initial: ConnectivityState.offline);
+  final connectivity = ManualConnectivityMonitor(
+    initial: ConnectivityState.offline,
+  );
   final remote = InMemoryRemoteStore<Order>();
   final sync = OfflineSync(connectivity: connectivity);
   final orders = sync.registerCollection<Order>(
@@ -423,7 +479,9 @@ Future<void> _pullDemo() async {
 
   print('  Pulled $applied record(s)');
   print('  Our unsynced edit survived: ${await orders.get('order_1')}');
-  print('  The other device\'s record arrived: ${await orders.get('order_2')}\n');
+  print(
+    '  The other device\'s record arrived: ${await orders.get('order_2')}\n',
+  );
 
   await sync.dispose();
 }
@@ -454,7 +512,9 @@ Future<void> _rollbackDemo() async {
   await sync.syncNow();
 
   rejectUpdates = true;
-  await orders.save(Order(id: 'order_1', customerName: r'<script>oops</script>'));
+  await orders.save(
+    Order(id: 'order_1', customerName: r'<script>oops</script>'),
+  );
   print('  Optimistically shown locally: ${await orders.get('order_1')}');
 
   await sync.syncNow();

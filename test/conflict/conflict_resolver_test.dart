@@ -25,13 +25,15 @@ void main() {
   final remote = TestUser(id: '1', name: 'Remote Name');
 
   test('ServerWinsResolver picks remote', () {
-    final result = const ServerWinsResolver<TestUser>().resolve(local, remote, _ctx(_op()));
+    final result = const ServerWinsResolver<TestUser>()
+        .resolve(local, remote, _ctx(_op()));
     expect(result.value, remote);
     expect(result.origin, ConflictOrigin.remote);
   });
 
   test('ClientWinsResolver picks local', () {
-    final result = const ClientWinsResolver<TestUser>().resolve(local, remote, _ctx(_op()));
+    final result = const ClientWinsResolver<TestUser>()
+        .resolve(local, remote, _ctx(_op()));
     expect(result.value, local);
     expect(result.origin, ConflictOrigin.local);
   });

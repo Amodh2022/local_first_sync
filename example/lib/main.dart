@@ -28,14 +28,14 @@ class OfflineSyncDemoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'offline_sync demo',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          useMaterial3: true,
-        ),
-        home: const TodoScreen(),
-      );
+    title: 'offline_sync demo',
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      useMaterial3: true,
+    ),
+    home: const TodoScreen(),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -58,15 +58,18 @@ class TodoSerializer implements Serializer<Todo> {
   const TodoSerializer();
 
   @override
-  Map<String, Object?> encode(Todo value) =>
-      {'id': value.id, 'title': value.title, 'done': value.done};
+  Map<String, Object?> encode(Todo value) => {
+    'id': value.id,
+    'title': value.title,
+    'done': value.done,
+  };
 
   @override
   Todo decode(Map<String, Object?> data) => Todo(
-        id: data['id']! as String,
-        title: data['title']! as String,
-        done: (data['done'] as bool?) ?? false,
-      );
+    id: data['id']! as String,
+    title: data['title']! as String,
+    done: (data['done'] as bool?) ?? false,
+  );
 }
 
 /// What the fake backend should do with the next request, so every failure
@@ -97,7 +100,9 @@ class _TodoScreenState extends State<TodoScreen> {
   void initState() {
     super.initState();
 
-    _connectivity = ManualConnectivityMonitor(initial: ConnectivityState.offline);
+    _connectivity = ManualConnectivityMonitor(
+      initial: ConnectivityState.offline,
+    );
 
     // Slow on purpose: with a zero-latency backend every operation would go
     // from queued to synced within one frame and you would never see the
@@ -106,10 +111,12 @@ class _TodoScreenState extends State<TodoScreen> {
       latency: const Duration(milliseconds: 1500),
       failureInjector: (operation, item) => switch (_failureMode) {
         FailureMode.none => null,
-        FailureMode.transient =>
-          const NetworkFailure('Connection reset by the server'),
-        FailureMode.permanent =>
-          const ValidationFailure('Title rejected by the backend'),
+        FailureMode.transient => const NetworkFailure(
+          'Connection reset by the server',
+        ),
+        FailureMode.permanent => const ValidationFailure(
+          'Title rejected by the backend',
+        ),
       },
     );
 
@@ -171,15 +178,18 @@ class _TodoScreenState extends State<TodoScreen> {
   /// Simulates another device having added a todo, then pulls it down.
   /// Records with unsynced local work queued are skipped, never clobbered.
   Future<void> _pullFromServer() async {
-    final id = 'from_other_device_${DateTime.now().millisecondsSinceEpoch % 1000}';
+    final id =
+        'from_other_device_${DateTime.now().millisecondsSinceEpoch % 1000}';
     _remote.seed(Todo(id: id, title: 'Added on another device'));
     final applied = await _sync.pullNow();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(applied > 0
-            ? 'Pulled $applied record(s) from the server'
-            : 'Nothing new on the server (or you are offline)'),
+        content: Text(
+          applied > 0
+              ? 'Pulled $applied record(s) from the server'
+              : 'Nothing new on the server (or you are offline)',
+        ),
       ),
     );
   }
@@ -290,9 +300,12 @@ class _SyncStatusBar extends StatelessWidget {
                   else
                     Icon(Icons.circle, size: 12, color: color),
                   const SizedBox(width: 8),
-                  Text(label,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    label,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const Spacer(),
                   Text(
                     state.hasUnsyncedWork
@@ -313,15 +326,17 @@ class _SyncStatusBar extends StatelessWidget {
                 state.lastSyncedAt == null
                     ? 'Never fully synced in this session'
                     : 'Last fully synced at '
-                        '${_formatTime(state.lastSyncedAt!)}',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontStyle: FontStyle.italic),
+                          '${_formatTime(state.lastSyncedAt!)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontStyle: FontStyle.italic,
+                ),
               ),
               if (state.lastError != null)
                 Text(
                   'Last error: ${state.lastError}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.error),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
                 ),
             ],
           ),
@@ -365,9 +380,13 @@ class _Toolbar extends StatelessWidget {
             segments: const [
               ButtonSegment(value: FailureMode.none, label: Text('Server OK')),
               ButtonSegment(
-                  value: FailureMode.transient, label: Text('Transient fail')),
+                value: FailureMode.transient,
+                label: Text('Transient fail'),
+              ),
               ButtonSegment(
-                  value: FailureMode.permanent, label: Text('Permanent fail')),
+                value: FailureMode.permanent,
+                label: Text('Permanent fail'),
+              ),
             ],
             selected: {failureMode},
             onSelectionChanged: (s) => onFailureModeChanged(s.first),
@@ -529,7 +548,10 @@ class _StatusChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-            color: color, fontSize: 11, fontWeight: FontWeight.bold),
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -557,8 +579,10 @@ class _InspectorPanel extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text('Sync Inspector — ${operations.length} operation(s)',
-                  style: theme.textTheme.titleSmall),
+              child: Text(
+                'Sync Inspector — ${operations.length} operation(s)',
+                style: theme.textTheme.titleSmall,
+              ),
             ),
             Expanded(
               child: operations.isEmpty

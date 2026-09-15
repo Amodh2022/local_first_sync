@@ -102,7 +102,8 @@ class OperationCoalescer {
         final hasQueuedCreate =
             superseded.any((op) => op.type == SyncOperationType.create);
         if (hasQueuedCreate) {
-          return CoalesceResult(operation: incoming, replaces: replaces, drop: true);
+          return CoalesceResult(
+              operation: incoming, replaces: replaces, drop: true);
         }
         return CoalesceResult(
           operation: _rebuild(

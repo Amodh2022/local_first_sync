@@ -36,7 +36,8 @@ class OfflineSync {
   })  : _queue = queue ?? InMemorySyncQueue(),
         _connectivity = connectivity ?? ManualConnectivityMonitor() {
     _config = config;
-    _engine = SyncEngine(queue: _queue, connectivity: _connectivity, config: config);
+    _engine =
+        SyncEngine(queue: _queue, connectivity: _connectivity, config: config);
   }
 
   final SyncQueue _queue;
@@ -73,7 +74,10 @@ class OfflineSync {
   bool get isPaused => _engine.isPaused;
 
   SyncInspector inspector({Set<String> redactedFields = const {}}) =>
-      SyncInspector(queue: _queue, connectivity: _connectivity, redactedFields: redactedFields);
+      SyncInspector(
+          queue: _queue,
+          connectivity: _connectivity,
+          redactedFields: redactedFields);
 
   /// Wires a [Collection] up to local + remote storage and registers it with
   /// the sync engine, returning the [Collection] apps read/write through.

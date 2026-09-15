@@ -5,8 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_sync_example/main.dart';
 
 void main() {
-  testWidgets('a todo saved offline shows PENDING, then SYNCED once online',
-      (tester) async {
+  testWidgets('a todo saved offline shows PENDING, then SYNCED once online', (
+    tester,
+  ) async {
     await tester.pumpWidget(const OfflineSyncDemoApp());
     await tester.pump();
 
@@ -17,9 +18,13 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Task #todo_1'), findsOneWidget,
-        reason: 'the local write must be on screen without waiting on a '
-            'network round trip');
+    expect(
+      find.text('Task #todo_1'),
+      findsOneWidget,
+      reason:
+          'the local write must be on screen without waiting on a '
+          'network round trip',
+    );
     expect(find.text('PENDING'), findsWidgets);
     expect(find.text('SYNCED'), findsNothing);
 

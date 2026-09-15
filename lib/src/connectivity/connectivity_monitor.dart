@@ -18,7 +18,8 @@ abstract interface class ConnectivityMonitor {
 /// building block integration tests use to simulate offline/online
 /// transitions deterministically.
 class ManualConnectivityMonitor implements ConnectivityMonitor {
-  ManualConnectivityMonitor({ConnectivityState initial = ConnectivityState.online})
+  ManualConnectivityMonitor(
+      {ConnectivityState initial = ConnectivityState.online})
       : _state = initial;
 
   ConnectivityState _state;

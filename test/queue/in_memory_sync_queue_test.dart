@@ -53,7 +53,8 @@ void main() {
     expect(dependents.map((o) => o.operationId), ['orderItem']);
   });
 
-  test('watchAll emits the current snapshot immediately, then on change', () async {
+  test('watchAll emits the current snapshot immediately, then on change',
+      () async {
     final queue = InMemorySyncQueue();
     final emissions = <int>[];
     final sub = queue.watchAll().listen((ops) => emissions.add(ops.length));

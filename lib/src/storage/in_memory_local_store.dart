@@ -50,7 +50,8 @@ class InMemoryLocalStore<T extends Identifiable> implements LocalStore<T> {
   @override
   Stream<List<T>> watchAll() => Stream.multi((controller) {
         controller.add(_snapshot());
-        final sub = _changes.stream.listen(controller.add, onError: controller.addError);
+        final sub = _changes.stream
+            .listen(controller.add, onError: controller.addError);
         controller.onCancel = sub.cancel;
       });
 

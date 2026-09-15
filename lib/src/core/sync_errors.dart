@@ -54,7 +54,8 @@ class AuthFailure extends SyncFailure {
 /// remote value (as an encoded payload) so a [ConflictResolver] can act on
 /// it. Never auto-retried — conflicts are routed through resolution instead.
 class ConflictFailure extends SyncFailure {
-  const ConflictFailure(super.message, {this.remoteValue}) : super(retryable: false);
+  const ConflictFailure(super.message, {this.remoteValue})
+      : super(retryable: false);
 
   /// The current server-side value, if the backend/adapter provided one.
   final Object? remoteValue;

@@ -8,7 +8,8 @@ import 'collection_binding.dart';
 
 /// The concrete [CollectionBinding] for a single `Collection<T>`, wiring its
 /// [LocalStore], [RemoteStore] and [Serializer] together.
-class TypedCollectionBinding<T extends Identifiable> implements CollectionBinding {
+class TypedCollectionBinding<T extends Identifiable>
+    implements CollectionBinding {
   TypedCollectionBinding({
     required this.name,
     required this.localStore,
@@ -31,7 +32,8 @@ class TypedCollectionBinding<T extends Identifiable> implements CollectionBindin
   final ConflictResolver<T>? conflictResolver;
 
   @override
-  Future<Map<String, Object?>> remoteCreate(Map<String, Object?> payload) async {
+  Future<Map<String, Object?>> remoteCreate(
+      Map<String, Object?> payload) async {
     final result = await remoteStore.create(serializer.decode(payload));
     return serializer.encode(result);
   }

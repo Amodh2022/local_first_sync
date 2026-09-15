@@ -76,5 +76,6 @@ class CustomResolver<T> implements ConflictResolver<T> {
 
   @override
   ConflictResolution<T> resolve(T local, T remote, ConflictContext context) =>
-      ConflictResolution(resolver(local, remote, context), ConflictOrigin.merged);
+      ConflictResolution(
+          resolver(local, remote, context), ConflictOrigin.merged);
 }
