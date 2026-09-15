@@ -10,9 +10,9 @@ class InMemoryRemoteStore<T extends Identifiable>
     implements PullableRemoteStore<T> {
   InMemoryRemoteStore({
     this.latency = Duration.zero,
-    this._assignServerId,
+    T Function(T item)? assignServerId,
     this.failureInjector,
-  });
+  }) : _assignServerId = assignServerId;
 
   final Duration latency;
   final T Function(T item)? _assignServerId;

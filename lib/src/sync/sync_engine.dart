@@ -405,11 +405,16 @@ class SyncEngine {
     return action().timeout(
       timeout,
       onTimeout: () => throw TimeoutFailure(
-        'Remote call exceeded ${timeout.inSeconds}s and was abandoned; '
+        'Remote call exceeded ${_describe(timeout)} and was abandoned; '
         'it will be retried.',
       ),
     );
   }
+
+  /// Sub-second timeouts are common in tests and in latency-sensitive
+  /// configs; [Duration.inSeconds] would render them all as `0s`.
+  static String _describe(Duration d) =>
+      d.inSeconds > 0 ? '${d.inSeconds}s' : '${d.inMilliseconds}ms';
 
   Future<bool> _processOperation(SyncOperation op) async {
     final binding = _bindings[op.collection];

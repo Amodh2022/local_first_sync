@@ -32,10 +32,11 @@ class SyncInspectorSnapshot {
 /// queue; it only explains what's there.
 class SyncInspector {
   SyncInspector({
-    required this._queue,
-    required this._connectivity,
+    required SyncQueue queue,
+    required ConnectivityMonitor connectivity,
     this.redactedFields = const {},
-  });
+  })  : _queue = queue,
+        _connectivity = connectivity;
 
   final SyncQueue _queue;
   final ConnectivityMonitor _connectivity;

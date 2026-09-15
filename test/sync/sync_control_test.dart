@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:offline_sync/offline_sync.dart';
 
 import '../support/test_models.dart';
@@ -264,8 +264,13 @@ void main() {
       expect((await sync.queue.getOperation(opId))!.status, SyncStatus.retry);
 
       // Nothing else touches the engine — no save, no connectivity change,
-      // no syncNow. The backoff deadline itself has to wake it up.
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      // no syncNow. The backoff deadline itself has to wake it up. Polled
+      // rather than slept on a fixed margin, so a loaded machine makes this
+      // slower, never flaky.
+      final deadline = DateTime.now().add(const Duration(seconds: 3));
+      while (remote.peek('1') == null && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
 
       expect(remote.peek('1')?.name, 'Amodh',
           reason: 'otherwise "retry in 200ms" really means "retry whenever '
