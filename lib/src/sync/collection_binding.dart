@@ -9,7 +9,7 @@ abstract class CollectionBinding {
 
   /// Payload field names that may hold another entity's id (or a list of
   /// ids) and therefore need temporary-id rewriting before this operation is
-  /// sent (AGENTS.md §15).
+  /// sent.
   List<String> get referenceFields;
 
   Future<Map<String, Object?>> remoteCreate(Map<String, Object?> payload);

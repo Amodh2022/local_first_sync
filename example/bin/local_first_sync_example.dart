@@ -18,7 +18,7 @@
 //   flutter pub run offline_sync_example
 import 'dart:async';
 
-import 'package:offline_sync/offline_sync.dart';
+import 'package:local_first_sync/local_first_sync.dart';
 
 class Order implements Identifiable {
   Order({required this.id, required this.customerName});

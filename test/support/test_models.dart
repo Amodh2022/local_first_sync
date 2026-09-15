@@ -1,4 +1,4 @@
-import 'package:offline_sync/offline_sync.dart';
+import 'package:local_first_sync/local_first_sync.dart';
 
 class TestUser implements Identifiable {
   TestUser({required this.id, required this.name, this.updatedAt});

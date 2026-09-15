@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'sync_errors.dart';
 
-/// Configurable exponential backoff (AGENTS.md §12). `initialDelay *
+/// Configurable exponential backoff. `initialDelay *
 /// multiplier^attempt`, capped at `maxDelay`, then spread by [jitter].
 class RetryPolicy {
   const RetryPolicy({

@@ -5,9 +5,10 @@ import 'local_store.dart';
 
 /// A [LocalStore] backed by a plain [Map]. Useful for prototyping, tests, and
 /// as the reference implementation while a real database adapter
-/// (`offline_sync_drift`, etc.) is being built — it holds no data across
-/// process restarts, so it must not be used for anything that needs the
-/// crash-recovery guarantees described in AGENTS.md §30.
+/// (`local_first_sync_drift`, etc.) is being built — it holds no data across
+/// process restarts, so it must not be used for anything that needs real
+/// crash recovery — use [PersistentSyncQueue] with a durable
+/// [SyncOperationStore] and a real [LocalStore] adapter for that.
 class InMemoryLocalStore<T extends Identifiable> implements LocalStore<T> {
   final _items = <String, T>{};
   final _changes = StreamController<List<T>>.broadcast();

@@ -4,7 +4,7 @@
 ///
 /// Adapters should throw one of these (or a subclass) rather than letting a
 /// raw HTTP/platform exception escape — that's the only way the engine can
-/// honor "never retry permanent failures forever" (AGENTS.md §12).
+/// honor "never retry permanent failures forever".
 sealed class SyncFailure implements Exception {
   const SyncFailure(this.message, {required this.retryable});
 
@@ -42,10 +42,9 @@ class ValidationFailure extends SyncFailure {
   const ValidationFailure(super.message) : super(retryable: false);
 }
 
-/// The credentials/session are no longer valid. Special-cased in AGENTS.md
-/// §12 as "special handling" rather than a plain retry; MVP treats it as
-/// non-retryable and surfaces it via events for the app to react to (e.g. by
-/// refreshing a token and re-enqueuing).
+/// The credentials/session are no longer valid. Treated as non-retryable and
+/// surfaced via events so the app can react (e.g. by refreshing a token and
+/// re-enqueuing) rather than burning the retry budget against a 401.
 class AuthFailure extends SyncFailure {
   const AuthFailure(super.message) : super(retryable: false);
 }

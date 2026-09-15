@@ -19,7 +19,7 @@
 //
 // Run with: flutter run
 import 'package:flutter/material.dart';
-import 'package:offline_sync/offline_sync.dart';
+import 'package:local_first_sync/local_first_sync.dart';
 
 void main() => runApp(const OfflineSyncDemoApp());
 

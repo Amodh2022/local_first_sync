@@ -1,7 +1,7 @@
 import '../core/identifiable.dart';
 
-/// Database-independent local persistence for entities of type [T]
-/// (AGENTS.md §6). Concrete adapters (Drift, Isar, ...) implement this;
+/// Database-independent local persistence for entities of type [T].
+/// Concrete adapters (Drift, Isar, ...) implement this;
 /// [Collection] and [SyncEngine] never assume a specific database.
 abstract interface class LocalStore<T extends Identifiable> {
   Future<T?> getById(String id);
@@ -16,7 +16,7 @@ abstract interface class LocalStore<T extends Identifiable> {
 
   /// Replaces the record stored under [oldId] with [newItem], which may have
   /// a different id. Used when a server assigns a permanent id to a record
-  /// that was created under a temporary id (DESIGN.md §6 / AGENTS.md §15).
+  /// that was created under a temporary id (DESIGN.md §6).
   ///
   /// Implementations that can't do this atomically may implement it as
   /// delete-then-insert; either way it must never leave both [oldId] and

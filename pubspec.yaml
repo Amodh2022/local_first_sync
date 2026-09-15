@@ -1,4 +1,4 @@
-name: offline_sync
+name: local_first_sync
 description: >-
   Local-first sync for Dart and Flutter: offline writes, a crash-safe queue,
   dependency-ordered operations, temp-id rewriting, and pluggable conflict

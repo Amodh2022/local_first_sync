@@ -1,7 +1,7 @@
 import 'sync_errors.dart';
 import 'sync_operation.dart';
 
-/// Framework-independent events emitted by [SyncEngine] — AGENTS.md §23.
+/// Framework-independent events emitted by [SyncEngine].
 /// Observable via `SyncEngine.events` / `OfflineSync.events` as a plain
 /// `Stream<SyncEvent>`, so any state-management adapter can listen without
 /// the core depending on it.

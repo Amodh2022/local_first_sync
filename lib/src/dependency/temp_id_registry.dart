@@ -1,5 +1,5 @@
 /// Tracks `temporaryId -> serverId` mappings created when a `create`
-/// operation for an offline-generated entity finally syncs (AGENTS.md §15).
+/// operation for an offline-generated entity finally syncs.
 ///
 /// [rewritePayload] is how those mappings actually get applied: it walks a
 /// caller-declared list of reference fields and swaps any value that matches

@@ -1,4 +1,4 @@
-name: offline_sync_example
+name: local_first_sync_example
 description: "Runnable examples demonstrating the offline_sync package."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -33,7 +33,7 @@ dependencies:
 
   # The package these examples demonstrate. Path dependency: this example
   # lives inside the offline_sync repo itself (not yet published to pub.dev).
-  offline_sync:
+  local_first_sync:
     path: ../
 
 dev_dependencies:

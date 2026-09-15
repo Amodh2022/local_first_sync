@@ -55,7 +55,7 @@ class SyncOperation {
   final DateTime? nextRetryAt;
 
   /// Human-readable reason this operation is [SyncStatus.blocked], set by the
-  /// engine — see DESIGN.md §6 / AGENTS.md §25.
+  /// engine — see DESIGN.md §6.
   final String? blockedReason;
 
   /// Higher values drain first. Operations of equal priority stay strictly
@@ -119,8 +119,8 @@ class SyncOperation {
   }
 
   /// A JSON-compatible representation, so a [SyncQueue] adapter can persist
-  /// the queue across process restarts without knowing this class's shape
-  /// (AGENTS.md §30). Payloads must themselves be JSON-encodable — the same
+  /// the queue across process restarts without knowing this class's shape.
+  /// Payloads must themselves be JSON-encodable — the same
   /// constraint [Serializer.encode] already implies.
   Map<String, Object?> toJson() => {
         'operationId': operationId,

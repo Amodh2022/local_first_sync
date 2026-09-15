@@ -1,4 +1,4 @@
-/// Explicit typed serialization (AGENTS.md §8). Prefer generated `encode`
+/// Explicit typed serialization. Prefer generated `encode`
 /// implementations for performance-sensitive models rather than reflection.
 ///
 /// `encode(value)['id']` must round-trip to the same value as

@@ -1,0 +1,38 @@
+# Files excluded from the published package. NOTE: a .pubignore REPLACES the
+# .gitignore for this directory as far as pub is concerned, so everything that
+# must stay out of the archive is listed here, not just the extra entries.
+
+# Generated
+build/
+.dart_tool/
+.pub-cache/
+.pub/
+coverage/
+pubspec.lock
+**/doc/api/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Agent tooling — instructions for Claude Code, not package documentation.
+.claude/
+CLAUDE.md
+
+# The example's platform scaffolding. Its Dart sources still ship, so the
+# pub.dev Example tab works, but ~6 MB of Gradle/Xcode/CMake boilerplate does
+# not need to be in every download.
+example/android/
+example/ios/
+example/linux/
+example/macos/
+example/windows/
+example/web/
+example/build/
+example/.dart_tool/
+example/pubspec.lock
+example/*.iml
+example/.idea/

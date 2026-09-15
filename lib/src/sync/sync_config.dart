@@ -12,7 +12,7 @@ class SyncConfig {
     this.retainSyncedOperations = const Duration(minutes: 5),
   });
 
-  /// Bounded worker concurrency (AGENTS.md §29). Independent operations sync
+  /// Bounded worker concurrency. Independent operations sync
   /// concurrently up to this many at a time; dependent chains still
   /// serialize through the dependency graph regardless of this value, and
   /// two operations on the *same* entity never run in the same batch.

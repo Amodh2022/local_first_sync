@@ -2,7 +2,7 @@ import '../core/sync_operation.dart';
 import '../core/sync_status.dart';
 
 /// Thrown by [SyncQueue.enqueue] when the new operation's dependencies would
-/// form a cycle. Never silently accepted (AGENTS.md §14).
+/// form a cycle. Never silently accepted.
 class CyclicDependencyException implements Exception {
   CyclicDependencyException(this.message);
 
@@ -50,7 +50,7 @@ class DependencyGraph {
 
   /// For every operation in [all] that has at least one dependency not yet
   /// [SyncStatus.synced], returns a human-readable reason keyed by
-  /// [SyncOperation.operationId] (AGENTS.md §14 / §25).
+  /// [SyncOperation.operationId].
   static Map<String, String> blockedReasons(Iterable<SyncOperation> all) {
     final byId = {for (final op in all) op.operationId: op};
     final reasons = <String, String>{};

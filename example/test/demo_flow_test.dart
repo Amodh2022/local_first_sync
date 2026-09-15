@@ -2,7 +2,7 @@
 // PENDING before any network call, and becomes SYNCED once online.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_sync_example/main.dart';
+import 'package:local_first_sync_example/main.dart';
 
 void main() {
   testWidgets('a todo saved offline shows PENDING, then SYNCED once online', (

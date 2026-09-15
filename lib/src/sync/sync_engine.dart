@@ -285,7 +285,7 @@ class SyncEngine {
   /// Drains the queue once. Safe to call concurrently — a call that arrives
   /// while a drain is already running just requests one more pass after the
   /// current one finishes, rather than running two drains in parallel
-  /// (AGENTS.md §29: avoid multiple workers processing the same queue
+  /// (avoid multiple workers processing the same queue
   /// simultaneously).
   Future<void> syncNow() {
     if (_inFlight != null) {
@@ -564,7 +564,7 @@ class SyncEngine {
   /// Reconciles every operation's [SyncStatus.blocked] state against the
   /// current dependency graph: newly-satisfied dependents become
   /// [SyncStatus.ready] again, newly-unsatisfied ones become
-  /// [SyncStatus.blocked] (AGENTS.md §14's recovery example).
+  /// [SyncStatus.blocked].
   Future<void> _refreshBlockedStatuses() async {
     final all = await _queue.all();
     final reasons = DependencyGraph.blockedReasons(all);

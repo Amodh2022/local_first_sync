@@ -1,8 +1,8 @@
 import '../core/sync_operation.dart';
 
-/// Persistent storage for [SyncOperation]s (AGENTS.md §10). A real adapter
+/// Persistent storage for [SyncOperation]s. A real adapter
 /// must persist every write in the same transaction as the entity mutation
-/// it accompanies — that's what makes crash recovery (AGENTS.md §30) sound.
+/// it accompanies — that's what makes crash recovery sound.
 ///
 /// [InMemorySyncQueue] is the reference implementation for tests/prototyping
 /// only; it does not survive a process restart.

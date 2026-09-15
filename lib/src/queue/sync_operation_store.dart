@@ -12,8 +12,7 @@ import '../core/sync_operation.dart';
 ///
 /// A conforming implementation must be durable before its `Future`
 /// completes: the whole point of the queue is that a crash between "the
-/// local write happened" and "the server acknowledged it" loses nothing
-/// (AGENTS.md §30).
+/// local write happened" and "the server acknowledged it" loses nothing.
 abstract interface class SyncOperationStore {
   /// Every persisted operation, as written by [write]. Called once when the
   /// queue is opened.
@@ -56,8 +55,8 @@ class InMemoryOperationStore implements SyncOperationStore {
 /// final prefs = await SharedPreferences.getInstance();
 /// final queue = await PersistentSyncQueue.open(
 ///   JsonBlobOperationStore(
-///     readBlob: () async => prefs.getString('offline_sync.queue'),
-///     writeBlob: (json) => prefs.setString('offline_sync.queue', json),
+///     readBlob: () async => prefs.getString('local_first_sync.queue'),
+///     writeBlob: (json) => prefs.setString('local_first_sync.queue', json),
 ///   ),
 /// );
 /// ```

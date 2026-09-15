@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:test/test.dart';
-import 'package:offline_sync/offline_sync.dart';
+import 'package:local_first_sync/local_first_sync.dart';
 
 import '../support/test_models.dart';
 

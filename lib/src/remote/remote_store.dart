@@ -1,8 +1,8 @@
 import '../core/identifiable.dart';
 
-/// Database-independent remote access for entities of type [T]
-/// (AGENTS.md §7). The core makes no assumption about REST/GraphQL/etc; a
-/// concrete adapter (`offline_sync_rest`, ...) implements this.
+/// Database-independent remote access for entities of type [T]. The core
+/// makes no assumption about REST/GraphQL/etc; a
+/// concrete adapter (`local_first_sync_rest`, ...) implements this.
 ///
 /// Implementations should throw a [SyncFailure] subtype (from
 /// `core/sync_errors.dart`) rather than a raw exception, so the [SyncEngine]

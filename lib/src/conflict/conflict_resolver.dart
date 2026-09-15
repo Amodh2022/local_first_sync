@@ -67,8 +67,8 @@ typedef CustomResolverFn<T> = T Function(
   ConflictContext context,
 );
 
-/// Wraps an app-supplied merge function, e.g. for field-level resolution
-/// (AGENTS.md §17): `(local, remote, ctx) => local.copyWith(name: remote.name)`.
+/// Wraps an app-supplied merge function, e.g. for field-level resolution:
+/// `(local, remote, ctx) => local.copyWith(name: remote.name)`.
 class CustomResolver<T> implements ConflictResolver<T> {
   const CustomResolver(this.resolver);
 

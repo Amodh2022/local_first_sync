@@ -1,6 +1,6 @@
 import 'dart:async';
 
-/// AGENTS.md §13: never equate device network connectivity with server
+/// Never equate device network connectivity with server
 /// reachability. This MVP models only the binary distinction a core can make
 /// without a platform plugin; an adapter can implement a richer
 /// [ConnectivityMonitor] (e.g. layering `connectivity_plus` + a reachability

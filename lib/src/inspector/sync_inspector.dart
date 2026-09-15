@@ -4,7 +4,7 @@ import '../core/sync_status.dart';
 import '../queue/sync_queue.dart';
 
 /// A point-in-time view over the queue, for building an in-app "Sync
-/// Inspector" UI (AGENTS.md §26).
+/// Inspector" UI.
 class SyncInspectorSnapshot {
   const SyncInspectorSnapshot({
     required this.connectivity,
@@ -27,9 +27,8 @@ class SyncInspectorSnapshot {
   final List<SyncOperation> operations;
 }
 
-/// Read-only diagnostics over a [SyncQueue] — the primary differentiator
-/// called out in AGENTS.md §26. Deliberately has no ability to mutate the
-/// queue; it only explains what's there.
+/// Read-only diagnostics over a [SyncQueue]. Deliberately has no ability to
+/// mutate the queue; it only explains what's there.
 class SyncInspector {
   SyncInspector({
     required SyncQueue queue,
@@ -42,7 +41,7 @@ class SyncInspector {
   final ConnectivityMonitor _connectivity;
 
   /// Payload field names to blank out (e.g. `password`, `authToken`) in any
-  /// snapshot this inspector produces (AGENTS.md §39).
+  /// snapshot this inspector produces.
   final Set<String> redactedFields;
 
   Future<SyncInspectorSnapshot> snapshot() async {
@@ -67,7 +66,7 @@ class SyncInspector {
       _queue.watchAll().asyncMap((_) => snapshot());
 
   /// A human-readable explanation for why [operation] hasn't synced yet —
-  /// the "Why isn't this synced?" requirement (AGENTS.md §25). Never reduces
+  /// the "Why isn't this synced?" requirement. Never reduces
   /// a failure to a bare "Sync failed."
   String explain(SyncOperation operation) {
     return switch (operation.status) {

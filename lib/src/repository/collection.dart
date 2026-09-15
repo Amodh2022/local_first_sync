@@ -7,7 +7,7 @@ import '../queue/sync_queue.dart';
 import '../serialization/serializer.dart';
 import '../storage/local_store.dart';
 
-/// The developer-facing, local-first API (AGENTS.md §9). Reads always come
+/// The developer-facing, local-first API. Reads always come
 /// from [LocalStore]; writes update it immediately and independently enqueue
 /// a [SyncOperation] — callers never wait on the network to observe a
 /// mutation.
