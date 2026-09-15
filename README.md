@@ -1,6 +1,7 @@
-# offline_sync
+# local_first_sync
 
-A state-management-agnostic, local-first synchronization framework for Flutter/Dart.
+A state-management-agnostic, local-first synchronization framework for Dart and
+Flutter, with **no runtime dependencies**.
 Writes land in local storage immediately and are synced to a backend in the background,
 with dependency-ordered operations, temporary-id → server-id rewriting, pluggable conflict
 resolution, and a built-in diagnostic Sync Inspector.
@@ -36,8 +37,7 @@ Most offline-first packages give you a local cache and a retry queue. What they 
 
 ```yaml
 dependencies:
-  offline_sync:
-    path: ../offline_sync # or a git/pub dependency once published
+  local_first_sync: ^0.1.0
 ```
 
 ## Core concepts
@@ -55,7 +55,7 @@ dependencies:
 ## Quick start
 
 ```dart
-import 'package:offline_sync/offline_sync.dart';
+import 'package:local_first_sync/local_first_sync.dart';
 
 class User implements Identifiable {
   User({required this.id, required this.name});
@@ -152,8 +152,8 @@ final prefs = await SharedPreferences.getInstance();
 final sync = OfflineSync(
   queue: await PersistentSyncQueue.open(
     JsonBlobOperationStore(
-      readBlob: () async => prefs.getString('offline_sync.queue'),
-      writeBlob: (json) => prefs.setString('offline_sync.queue', json),
+      readBlob: () async => prefs.getString('local_first_sync.queue'),
+      writeBlob: (json) => prefs.setString('local_first_sync.queue', json),
     ),
   ),
 );
@@ -300,29 +300,29 @@ usage of the concurrency/indexing knobs the engine actually exposes, not marketi
 
 ## Using it in a Clean Architecture app
 
-`offline_sync` naturally slots in as **infrastructure that implements your domain-layer
+`local_first_sync` naturally slots in as **infrastructure that implements your domain-layer
 repository interfaces** — it does not want to *be* your domain layer, and it has no opinion
 about your presentation/state-management layer. A typical layering:
 
 ```
 Presentation (widgets, view-models / BLoC / Riverpod notifiers / controllers)
         │  depends on
-Domain (entities, use cases, repository interfaces — pure Dart, no offline_sync import)
+Domain (entities, use cases, repository interfaces — pure Dart, no local_first_sync import)
         │  implemented by
-Data (repository implementations — the only layer that imports offline_sync)
+Data (repository implementations — the only layer that imports local_first_sync)
         │  wraps
-offline_sync (Collection<T>, OfflineSync, SyncInspector)
+local_first_sync (Collection<T>, OfflineSync, SyncInspector)
         │  backed by
 Your LocalStore<T> / RemoteStore<T> adapters (Drift, REST client, ...)
 ```
 
-The key discipline: **your domain layer never imports `package:offline_sync`.** It defines
+The key discipline: **your domain layer never imports `package:local_first_sync`.** It defines
 its own repository interface in terms of your own entities; the data layer's implementation
 is the only place that talks to `Collection<T>`, translating between your domain entities and
 the DTOs `Serializer<T>` encodes/decodes.
 
 ```dart
-// domain/entities/todo.dart — pure Dart, no offline_sync dependency
+// domain/entities/todo.dart — pure Dart, no local_first_sync dependency
 class Todo {
   const Todo({required this.id, required this.title, required this.done});
   final String id;
@@ -337,14 +337,14 @@ abstract interface class TodoRepository {
   Stream<List<Todo>> watchAll();
 }
 
-// domain/usecases/toggle_todo.dart — orchestration, still offline_sync-free
+// domain/usecases/toggle_todo.dart — orchestration, still local_first_sync-free
 class ToggleTodo {
   ToggleTodo(this._repo);
   final TodoRepository _repo;
   Future<void> call(Todo todo) => _repo.toggle(todo);
 }
 
-// data/models/todo_dto.dart — the offline_sync-facing model
+// data/models/todo_dto.dart — the local_first_sync-facing model
 class TodoDto implements Identifiable {
   TodoDto({required this.id, required this.title, required this.done});
   @override
@@ -364,7 +364,7 @@ class TodoDtoSerializer implements Serializer<TodoDto> {
       TodoDto(id: d['id'] as String, title: d['title'] as String, done: d['done'] as bool);
 }
 
-// data/repositories/offline_sync_todo_repository.dart — the ONLY layer importing offline_sync
+// data/repositories/local_first_sync_todo_repository.dart — the ONLY layer importing local_first_sync
 class OfflineSyncTodoRepository implements TodoRepository {
   OfflineSyncTodoRepository(this._collection);
   final Collection<TodoDto> _collection; // built via OfflineSync.registerCollection<TodoDto>
@@ -398,7 +398,7 @@ sync.start();
 final todoRepository = OfflineSyncTodoRepository(todoCollection);
 final toggleTodo = ToggleTodo(todoRepository);
 
-// Presentation layer depends on TodoRepository/ToggleTodo, never on offline_sync directly.
+// Presentation layer depends on TodoRepository/ToggleTodo, never on local_first_sync directly.
 ```
 
 Why this pays off:
@@ -424,7 +424,7 @@ Why this pays off:
 production adapters (per [`DESIGN.md`](DESIGN.md#3-core-domain-model-mvp)). Before shipping:
 
 - Implement `LocalStore<T>` against real persistence (Drift/sqlite3 is the intended first
-  adapter — `offline_sync_drift`, not yet built) so writes/queue state survive app restarts.
+  adapter — `local_first_sync_drift`, not yet built) so writes/queue state survive app restarts.
 - Implement `RemoteStore<T>` against your actual backend, throwing the appropriate
   `SyncFailure` subtype (see [Performance](#performance-how-to-get-the-most-out-of-it) point 5)
   rather than letting raw HTTP exceptions escape.
@@ -439,16 +439,16 @@ production adapters (per [`DESIGN.md`](DESIGN.md#3-core-domain-model-mvp)). Befo
 ## Development
 
 ```bash
-flutter pub get
-flutter test                                                     # full suite
-flutter test test/sync/sync_engine_test.dart                     # one file
-flutter test --plain-name "a permanently failed operation blocks its dependents"
-flutter analyze
+dart pub get
+dart test                                                        # full suite
+dart test test/sync/sync_engine_test.dart                        # one file
+dart test --plain-name "a permanently failed operation blocks its dependents"
+dart analyze
 ```
 
 The `example/` directory has both a Flutter app (`flutter run`, shows the
 PENDING → SYNCING → SYNCED lifecycle with an embedded Sync Inspector) and a plain-Dart
-walkthrough of every behavior (`dart run bin/offline_sync_example.dart`).
+walkthrough of every behavior (`cd example && dart run bin/local_first_sync_example.dart`).
 
 See [`CLAUDE.md`](CLAUDE.md) for repository layout conventions and
 [`DESIGN.md`](DESIGN.md) for the architecture rationale and staged roadmap (CRDT-style

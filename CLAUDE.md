@@ -4,35 +4,45 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`offline_sync` is a state-management-agnostic, local-first synchronization framework for
+`local_first_sync` is a state-management-agnostic, local-first synchronization framework for
 Flutter/Dart, built under the product/engineering spec in `.claude/agents/package_create.md`
 (AGENTS.md). The competitive research and architecture proposal that spec required before
 any implementation lives in `DESIGN.md` — read it first for the domain model, sync state
 machine, queue/dependency/conflict design, and the MVP scope decisions that shaped the code.
 
-The package is developed in place under this single Flutter project's `lib/` (not yet a
-melos monorepo); `lib/main.dart` and `test/widget_test.dart` are unrelated leftover
-`flutter create` scaffold, not part of the package.
+**This is a pure Dart package** (not a Flutter package, not a melos monorepo): `lib/` has
+zero Flutter imports and the pubspec has no runtime dependencies at all, so it works in
+Flutter, server, and CLI Dart alike. Use `dart`, not `flutter`, for everything at the repo
+root. `example/` is a separate Flutter app that depends on this package by path — use
+`flutter` there.
+
+Do not introduce a `dart:io`/`dart:html` import or any runtime dependency in `lib/` without
+a deliberate decision: it would drop platform tags on pub.dev (currently the maximum set)
+and break the dependency-free claim in the README.
 
 ## Commands
 
-- `flutter pub get` — install dependencies.
-- `flutter test` — run the full suite.
-- `flutter test test/sync/sync_engine_test.dart` — run a single test file.
-- `flutter test --plain-name "a permanently failed operation blocks its dependents"` —
+- `dart pub get` — install dependencies.
+- `dart test` — run the full suite (67 tests).
+- `dart test test/sync/sync_engine_test.dart` — run a single test file.
+- `dart test --plain-name "a permanently failed operation blocks its dependents"` —
   run a single test by name.
-- `flutter analyze` — static analysis (`analysis_options.yaml`, based on `flutter_lints`).
+- `dart analyze` — static analysis (`analysis_options.yaml`, based on `package:lints`).
+- `dart format .` — required before publishing; pana scores formatting.
+- `dart pub publish --dry-run` — publish readiness. Must be warning-free.
+- In `example/`: `flutter run`, `flutter test`, and
+  `dart run bin/local_first_sync_example.dart` for the console walkthrough.
 
 ## Architecture
 
-Public API is exported from `lib/offline_sync.dart`; everything else lives under `lib/src/`,
+Public API is exported from `lib/local_first_sync.dart`; everything else lives under `lib/src/`,
 organized by responsibility (mirrors `test/`):
 
 - `core/` — `SyncOperation`, `SyncStatus`, `SyncEvent`s, `SyncFailure` types, `RetryPolicy`,
   `Identifiable`. Pure data/enums, no I/O.
 - `serialization/` — `Serializer<T>` (explicit encode/decode, no reflection).
 - `storage/` — `LocalStore<T>` interface + `InMemoryLocalStore<T>` (test/prototyping only;
-  a real adapter like `offline_sync_drift` is future work, not yet built).
+  a real adapter like `local_first_sync_drift` is future work, not yet built).
 - `remote/` — `RemoteStore<T>` interface, the opt-in `PullableRemoteStore<T>` (pull sync),
   and `InMemoryRemoteStore<T>` (same caveat; a REST adapter is future work).
 - `queue/` — `SyncQueue` interface + `InMemorySyncQueue` (tests/prototyping) and
@@ -61,7 +71,7 @@ organized by responsibility (mirrors `test/`):
   independently enqueue a `SyncOperation`; callers never wait on the network.
 - `inspector/` — `SyncInspector`, a read-only diagnostic view over the queue (counts by
   status, human-readable `explain(operation)`, optional field redaction).
-- `offline_sync_facade.dart` — `OfflineSync`, the single object most apps construct:
+- `local_first_sync_facade.dart` — `OfflineSync`, the single object most apps construct:
   `registerCollection<T>(...)` wires a collection's storage/remote/serializer/conflict
   resolver into both the `Collection` apps use and the engine's binding registry.
 
@@ -89,5 +99,5 @@ organized by responsibility (mirrors `test/`):
   record would race and the loser would overwrite the winner.
 - **Scope**: push-sync is the core; pull-sync is opt-in per collection via
   `PullableRemoteStore` and never overwrites an entity with unsynced queued work. No CRDTs
-  and no state-management adapters (`offline_sync_bloc`, etc.) yet — see DESIGN.md §10 for
+  and no state-management adapters (`local_first_sync_bloc`, etc.) yet — see DESIGN.md §10 for
   the staged plan and what's deliberately deferred.

@@ -1,9 +1,15 @@
-# offline_sync — Competitive Research & Architecture Proposal
+# local_first_sync — Competitive Research & Architecture Proposal
 
-Status: **Step 1–2 deliverable per `.claude/agents/package_create.md` §49/§52.**
-This document is a research + architecture proposal only. No implementation code has
-been written yet, per the agent's explicit rule: *"Do NOT start implementing the
-package immediately... Then stop and wait for approval before implementing."*
+Status: **historical.** This was written as a research + architecture proposal *before*
+any implementation, to decide what was worth building and what was not. It is kept because
+the reasoning still explains why the package is shaped the way it is — the domain model, the
+sync state machine, the queue/dependency/conflict design, and the deliberate non-goals.
+
+Two things have changed since it was written, and are noted inline below: the package is
+published as `local_first_sync` (the name `offline_sync` was already taken on pub.dev), and
+several items listed here as gaps or deferred work have since been built — pull sync,
+a crash-safe persistent queue, operation coalescing, and queue control. See `CHANGELOG.md`
+for what actually shipped in 0.1.0.
 
 ---
 
@@ -18,7 +24,7 @@ package immediately... Then stop and wait for approval before implementing."*
 | **pocketsync_flutter** | SQLite + Socket.IO real-time propagation | Not documented (no backoff mentioned) | LWW/server/client/custom | No | No | No | Alpha, explicitly "not reliable for production", 93 downloads |
 | **offline_sync_engine** | Vector-clock CRDT merge, adapter-based local/cloud sources | Log-replay based, idempotent apply | Deterministic CRDT merge (dominant-wins / field merge) | Implicit via vector clocks, not app-visible | Not documented | Not documented | New, small, adapters only sketched |
 | **dynos_sync** | Claims 50k+ writes/sec, delta-pulls | Not verified | Not documented | Not documented | Not documented | Not documented | Marketing-heavy pub description, unverified claims |
-| Existing pub.dev **`offline_sync`** | Generic offline-first data manager | Basic | Basic | No | No | No | 34 likes — **name collision to be aware of**, not a technical concern |
+| Existing pub.dev **`offline_sync`** | Generic offline-first data manager | Basic | Basic | No | No | No | 34 likes — **name collision**, since resolved by publishing as `local_first_sync` |
 
 ### What we should NOT build
 - A code-generation-first framework like Brick (`@OfflineFirst` annotations, generated repositories). It's powerful but couples the framework to build_runner and a specific serialization story, and none of our target adapters need that to work well.
@@ -45,19 +51,19 @@ We will **not** try to out-perform PowerSync's managed sync-stream model or out-
 
 ## 2. Proposed architecture
 
-Package family (per AGENTS.md §1.1 — this repo will initially build **only** `offline_sync_core` and, once stable, `offline_sync_drift` + `offline_sync_rest`; the state-management adapters come later per the phased workflow):
+Package family (per AGENTS.md §1.1 — this repo will initially build **only** `local_first_sync_core` and, once stable, `local_first_sync_drift` + `local_first_sync_rest`; the state-management adapters come later per the phased workflow):
 
 ```
-offline_sync_core     — pure Dart, zero Flutter/state-mgmt deps
-offline_sync_drift    — Drift-backed LocalStore implementation
-offline_sync_rest     — REST-backed RemoteStore implementation
+local_first_sync_core     — pure Dart, zero Flutter/state-mgmt deps
+local_first_sync_drift    — Drift-backed LocalStore implementation
+local_first_sync_rest     — REST-backed RemoteStore implementation
 
-offline_sync_bloc / _riverpod / _provider / _getx  — later, thin adapters
+local_first_sync_bloc / _riverpod / _provider / _getx  — later, thin adapters
 ```
 
 Given this repo is a single Flutter project (not yet a melos/monorepo), the MVP will
 live under `lib/src/...` as described in AGENTS.md §45, structured so it can be
-extracted into a `packages/offline_sync_core` melos workspace later without an API
+extracted into a `packages/local_first_sync_core` melos workspace later without an API
 rewrite — i.e. we keep Drift/REST-specific code physically isolated from day one even
 before it is split into separate pub packages.
 
@@ -259,7 +265,7 @@ In order, each step gated on the previous one's tests passing:
    database or network.
 5. **Dependency graph + temporary IDs** on top of the engine.
 6. **Conflict resolver abstraction** with built-in strategies.
-7. Only then: **`offline_sync_drift`** (real persistence) and **`offline_sync_rest`**
+7. Only then: **`local_first_sync_drift`** (real persistence) and **`local_first_sync_rest`**
    (real network) as the first concrete adapters — per AGENTS.md §49 Steps 6–7.
 8. **Sync Inspector** (read-only view over engine/queue state + event log).
 
@@ -278,7 +284,7 @@ implementation code. Please confirm:
 2. The MVP scope in §10 (push-sync only, no CRDT, no pull-sync yet, no
    state-management adapters yet).
 3. Whether to start building in-place under `lib/src/` in this single-package repo,
-   or set up a melos monorepo now (`packages/offline_sync_core`, etc.) before writing
+   or set up a melos monorepo now (`packages/local_first_sync_core`, etc.) before writing
    any code.
 
 Once confirmed, implementation proceeds incrementally per §10 above, one gated step
