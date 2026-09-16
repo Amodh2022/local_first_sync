@@ -4,6 +4,8 @@ description: >-
   dependency-ordered operations, temp-id rewriting, and pluggable conflict
   resolution.
 version: 0.1.0
+repository: https://github.com/Amodh2022/local_first_sync
+issue_tracker: https://github.com/Amodh2022/local_first_sync/issues
 topics:
   - offline-first
   - local-first
