@@ -16,7 +16,7 @@ abstract interface class LocalStore<T extends Identifiable> {
 
   /// Replaces the record stored under [oldId] with [newItem], which may have
   /// a different id. Used when a server assigns a permanent id to a record
-  /// that was created under a temporary id (DESIGN.md §6).
+  /// that was created under a temporary id.
   ///
   /// Implementations that can't do this atomically may implement it as
   /// delete-then-insert; either way it must never leave both [oldId] and

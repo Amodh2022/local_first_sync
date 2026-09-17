@@ -1,5 +1,4 @@
-/// Lifecycle states for a [SyncOperation]. See DESIGN.md §4 for the full
-/// state machine and transition rules.
+/// Lifecycle states for a [SyncOperation].
 enum SyncStatus {
   /// Just created, not yet handed to the queue. Transient — operations
   /// enqueued via [Collection] start at [ready] or [blocked].

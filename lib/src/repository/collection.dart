@@ -50,9 +50,8 @@ class Collection<T extends Identifiable> {
   /// Pass [dependsOn] — [SyncOperation.operationId]s returned by earlier
   /// [save]/[delete]
   /// calls — when this entity structurally depends on another one still
-  /// syncing (e.g. an `OrderItem` referencing an `Order`'s id). See
-  /// DESIGN.md §6 for how temporary ids get rewritten into these dependents
-  /// once the dependency resolves.
+  /// syncing (e.g. an `OrderItem` referencing an `Order`'s id). Temporary ids
+  /// get rewritten into these dependents once the dependency resolves.
   ///
   /// [priority] raises this write above the rest of the backlog: a message
   /// send at priority 10 goes out before 200 queued analytics events, no

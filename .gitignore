@@ -49,3 +49,9 @@ app.*.map.json
 
 # Published-library concerns
 pubspec.lock
+
+# Agent/assistant tooling
+.claude/
+AGENTS.md
+agents.md
+**/AGENTS.md

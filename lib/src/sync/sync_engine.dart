@@ -14,7 +14,7 @@ import 'sync_state.dart';
 
 /// Drives [SyncOperation]s from [SyncStatus.ready]/[SyncStatus.retry] through
 /// to [SyncStatus.synced], handling retries, dependency blocking, temporary
-/// id reassignment, and conflict resolution. See DESIGN.md §4/§8/§9.
+/// id reassignment, and conflict resolution.
 ///
 /// The engine never talks to a database or a network directly — it only
 /// knows about [SyncQueue] and the [CollectionBinding]s registered for each

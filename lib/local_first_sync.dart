@@ -19,8 +19,6 @@
 ///
 /// The package has no runtime dependencies and no opinion about your state
 /// management — [Collection.watch] is a plain `Stream<List<T>>`.
-///
-/// See `DESIGN.md` in the repository for the architecture behind this.
 library;
 
 export 'src/conflict/conflict_resolver.dart';

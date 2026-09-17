@@ -5,9 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project
 
 `local_first_sync` is a state-management-agnostic, local-first synchronization framework for
-Flutter/Dart, built under the product/engineering spec in `.claude/agents/package_create.md`
-(AGENTS.md). The competitive research and architecture proposal that spec required before
-any implementation lives in `DESIGN.md` — read it first for the domain model, sync state
+Flutter/Dart. The competitive research and architecture proposal that preceded any
+implementation lives in `DESIGN.md` — read it first for the domain model, sync state
 machine, queue/dependency/conflict design, and the MVP scope decisions that shaped the code.
 
 **This is a pure Dart package** (not a Flutter package, not a melos monorepo): `lib/` has

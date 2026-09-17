@@ -6,7 +6,7 @@ const Object _unset = Object();
 
 /// A single queued mutation awaiting synchronization. Immutable — every
 /// state transition produces a new instance via [copyWith], which the
-/// [SyncQueue] persists in place of the old one. See DESIGN.md §5.
+/// [SyncQueue] persists in place of the old one.
 class SyncOperation {
   const SyncOperation({
     required this.operationId,
@@ -55,7 +55,7 @@ class SyncOperation {
   final DateTime? nextRetryAt;
 
   /// Human-readable reason this operation is [SyncStatus.blocked], set by the
-  /// engine — see DESIGN.md §6.
+  /// engine.
   final String? blockedReason;
 
   /// Higher values drain first. Operations of equal priority stay strictly

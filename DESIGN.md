@@ -51,7 +51,7 @@ We will **not** try to out-perform PowerSync's managed sync-stream model or out-
 
 ## 2. Proposed architecture
 
-Package family (per AGENTS.md §1.1 — this repo will initially build **only** `local_first_sync_core` and, once stable, `local_first_sync_drift` + `local_first_sync_rest`; the state-management adapters come later per the phased workflow):
+Package family (this repo will initially build **only** `local_first_sync_core` and, once stable, `local_first_sync_drift` + `local_first_sync_rest`; the state-management adapters come later per the phased workflow):
 
 ```
 local_first_sync_core     — pure Dart, zero Flutter/state-mgmt deps
@@ -62,12 +62,12 @@ local_first_sync_bloc / _riverpod / _provider / _getx  — later, thin adapters
 ```
 
 Given this repo is a single Flutter project (not yet a melos/monorepo), the MVP will
-live under `lib/src/...` as described in AGENTS.md §45, structured so it can be
-extracted into a `packages/local_first_sync_core` melos workspace later without an API
+live under `lib/src/...`, structured so it can be extracted
+into a `packages/local_first_sync_core` melos workspace later without an API
 rewrite — i.e. we keep Drift/REST-specific code physically isolated from day one even
 before it is split into separate pub packages.
 
-### Layering (per AGENTS.md §4)
+### Layering
 
 ```
 Presentation
@@ -131,8 +131,8 @@ synchronously-from-the-caller's-perspective (immediately visible via `watch()`),
 enqueues a `SyncOperation` — it never talks to `RemoteStore<T>` directly.
 
 ### MVP scope decision
-`fetch()`/pull-sync and CRDT-style merge are explicitly **out of MVP scope** (per
-AGENTS.md §20, deferred). MVP is push-sync only: local mutation → queue → remote.
+`fetch()`/pull-sync and CRDT-style merge are explicitly **out of MVP scope** (deferred).
+MVP is push-sync only: local mutation → queue → remote.
 Pull sync is a separate milestone once the push path is proven correct and benchmarked.
 
 ---
@@ -178,9 +178,8 @@ class SyncOperation {
 
 - Persisted via `LocalStore`'s own database (same Drift/SQLite instance as entity
   data) so entity write + queue insert happen in one transaction — this is the
-  crash-recovery guarantee from AGENTS.md §30.
-- Indexed on: `status`, `nextRetryAt`, `collection`, `entityId`, `dependencyIds`
-  (AGENTS.md §31).
+  crash-recovery guarantee.
+- Indexed on: `status`, `nextRetryAt`, `collection`, `entityId`, `dependencyIds`.
 
 ---
 
@@ -215,8 +214,8 @@ abstract interface class ConflictResolver<T> {
   `custom` takes an app-supplied resolver.
 - Field-level resolution is modeled as a `custom` resolver that returns a per-field
   merged value; the core does not special-case field-level merge, keeping the
-  abstraction single-purpose (AGENTS.md §17).
-- Every conflict, resolved or not, emits a `ConflictDetected` event (AGENTS.md §23)
+  abstraction single-purpose.
+- Every conflict, resolved or not, emits a `ConflictDetected` event
   — conflicts are never silently swallowed even when auto-resolved.
 
 ---
@@ -230,27 +229,27 @@ abstract interface class ConflictResolver<T> {
 - No `getAll()`-style full-table loads on the sync hot path — queue draining uses
   indexed, paginated queries (`status = READY ORDER BY createdAt LIMIT N`).
 - Reactive streams diff at the entity/query level, not by re-emitting entire
-  collections (AGENTS.md §21).
-- Benchmarks land in `benchmark/` per AGENTS.md §41 before any performance claim is
-  written in docs; no numbers are asserted in this document because none have been
+  collections.
+- Benchmarks land in `benchmark/` before any performance claim is written in
+  docs; no numbers are asserted in this document because none have been
   measured yet.
 
 ---
 
 ## 9. Testing strategy
 
-Unit-level (per AGENTS.md §43), organized to mirror `lib/src/`:
+Unit-level, organized to mirror `lib/src/`:
 `test/queue`, `test/sync`, `test/dependency`, `test/conflict`, `test/repository`,
 plus `test/integration` for the canonical scenario:
 offline mutation → app restart → still offline → network returns → sync →
 verify remote + local state match.
 
-Stress scenarios (AGENTS.md §44) are tracked but scheduled after the MVP unit suite
-is green — no benchmark/stress work happens before correctness is established.
+Stress scenarios are tracked but scheduled after the MVP unit suite is green
+— no benchmark/stress work happens before correctness is established.
 
 ---
 
-## 10. Proposed MVP scope (Step 3–6 of AGENTS.md §49)
+## 10. Proposed MVP scope
 
 In order, each step gated on the previous one's tests passing:
 
@@ -266,18 +265,18 @@ In order, each step gated on the previous one's tests passing:
 5. **Dependency graph + temporary IDs** on top of the engine.
 6. **Conflict resolver abstraction** with built-in strategies.
 7. Only then: **`local_first_sync_drift`** (real persistence) and **`local_first_sync_rest`**
-   (real network) as the first concrete adapters — per AGENTS.md §49 Steps 6–7.
+   (real network) as the first concrete adapters.
 8. **Sync Inspector** (read-only view over engine/queue state + event log).
 
 State-management adapters (BLoC, Riverpod) are explicitly deferred to after the core
-API is stable, per AGENTS.md §49 Step 10 — not part of this MVP.
+API is stable — not part of this MVP.
 
 ---
 
 ## Next step
 
-Per AGENTS.md §52, this is the point to **stop and get approval** before writing any
-implementation code. Please confirm:
+This is the point to **stop and get approval** before writing any implementation
+code. Please confirm:
 
 1. The differentiator priorities in §1 (dependency-aware sync + temp IDs, then
    Sync Inspector, then state-mgmt neutrality, then human-readable explanations).

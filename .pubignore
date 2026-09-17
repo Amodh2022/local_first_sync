@@ -18,9 +18,12 @@ pubspec.lock
 *.iws
 .vscode/
 
-# Agent tooling — instructions for Claude Code, not package documentation.
+# Agent tooling — contributor instructions, not package documentation.
 .claude/
 CLAUDE.md
+AGENTS.md
+agents.md
+**/AGENTS.md
 
 # The example's platform scaffolding. Its Dart sources still ship, so the
 # pub.dev Example tab works, but ~6 MB of Gradle/Xcode/CMake boilerplate does

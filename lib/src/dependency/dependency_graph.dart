@@ -13,8 +13,7 @@ class CyclicDependencyException implements Exception {
 }
 
 /// Pure functions over a queue snapshot — deliberately not a persisted data
-/// structure of its own, so it can never drift from the queue it describes
-/// (DESIGN.md §6).
+/// structure of its own, so it can never drift from the queue it describes.
 class DependencyGraph {
   DependencyGraph._();
 

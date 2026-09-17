@@ -26,7 +26,9 @@ Most offline-first packages give you a local cache and a retry queue. What they 
   instead of a bare status enum.
 - **Zero opinion about your state management.** The core has no Flutter, Bloc, Riverpod, or
   Provider dependency. `Collection<T>.watch()` is a plain `Stream<List<T>>` — wire it into
-  whatever you already use.
+  whatever you already use; see
+  [Using it with any state management](#using-it-with-any-state-management) for worked
+  Provider, Riverpod, BLoC, GetX, MobX, signals and Redux examples.
 - **A queue you can actually operate.** Pause and resume it, retry or cancel a single
   operation, purge completed ones, see it in one `SyncState` stream. Most packages give you
   a black box that either drains or doesn't.
@@ -425,6 +427,340 @@ Why this pays off:
   screen needs to show sync health — don't leak `SyncInspector`/`SyncOperation` types into
   domain or presentation code.
 
+## Using it with any state management
+
+This package is **state-management-agnostic by construction**: `lib/` imports nothing from
+Flutter and has no runtime dependencies, so it cannot — and does not — know whether a
+`BuildContext`, a `Cubit`, a `Ref` or nothing at all is on the other side. Everything it
+exposes is either a `Future` or a plain `Stream`, which is the one thing every Dart state
+solution already knows how to consume.
+
+There are **three streams** a UI ever subscribes to (a fourth, `sync.events`, is a firehose
+for logging rather than for rebuilds), and every integration below is a variation on the
+same few lines:
+
+| What you want on screen | What you subscribe to | Type |
+| --- | --- | --- |
+| The data itself | `collection.watch()` / `collection.watchById(id)` | `Stream<List<T>>` / `Stream<T?>` |
+| A status bar, badge, "3 unsynced" | `sync.watchState()` | `Stream<SyncState>` |
+| Per-operation diagnostics (debug screen) | `sync.inspector().watch()` | `Stream<SyncInspectorSnapshot>` |
+
+And **two write calls**, both of which return as soon as the local write lands — never when
+the network does: `collection.save(item)` and `collection.delete(id)`.
+
+### The rule that keeps every integration simple
+
+> **Don't copy the data into your state object — adapt the stream.**
+
+Your `LocalStore` is already the source of truth, and it already emits on every change,
+including changes the sync engine makes in the background (a server-assigned id replacing a
+temporary one, a conflict resolution rewriting a row, a pull landing new records). A store,
+notifier or bloc that holds its own `List<T>` copy and mutates it by hand on each button
+press will silently drift out of date the moment the engine writes something the user
+didn't type. Hold the list only as a *render cache* fed by the subscription, and make every
+mutation go through `collection.save`/`delete`.
+
+The same applies to ownership: construct **one** `OfflineSync` per app/session at your
+composition root, call `start()` once, and `dispose()` it when the session ends. It is not a
+per-screen object.
+
+### Setup, once, wherever your composition root is
+
+Every snippet below assumes this much has already happened:
+
+```dart
+final sync = OfflineSync(
+  queue: await PersistentSyncQueue.open(MyOperationStore(db)),
+  connectivity: ReachabilityConnectivityMonitor(probe: () => api.isReachable()),
+);
+
+final todos = sync.registerCollection<TodoDto>(
+  name: 'todos',
+  localStore: DriftTodoStore(db),
+  remoteStore: RestTodoStore(api),
+  serializer: TodoDtoSerializer(),
+);
+
+sync.start();
+```
+
+`TodoDto.toggled()` in the snippets below is just an illustrative helper on your own model
+(`TodoDto(id: id, title: title, done: !done)`) — nothing in this package requires it.
+
+### No state-management package at all (`StreamBuilder`)
+
+Nothing needs adapting — `Collection.watch()` *is* the view model.
+
+```dart
+StreamBuilder<List<TodoDto>>(
+  stream: todos.watch(),
+  builder: (context, snap) {
+    final items = snap.data ?? const [];
+    return ListView(
+      children: [
+        for (final t in items)
+          CheckboxListTile(
+            title: Text(t.title),
+            value: t.done,
+            // Returns after the local write; the stream above re-emits immediately
+            // and the request goes out whenever the network allows.
+            onChanged: (_) => todos.save(t.toggled()),
+          ),
+      ],
+    );
+  },
+);
+```
+
+### `ChangeNotifier` / `provider`
+
+```dart
+class TodoNotifier extends ChangeNotifier {
+  TodoNotifier(this._todos) {
+    _sub = _todos.watch().listen((items) {
+      this.items = items;       // render cache, never hand-mutated
+      notifyListeners();
+    });
+  }
+
+  final Collection<TodoDto> _todos;
+  late final StreamSubscription<List<TodoDto>> _sub;
+  List<TodoDto> items = const [];
+
+  Future<void> add(String title) =>
+      _todos.save(TodoDto(id: newId(), title: title, done: false));
+
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
+  }
+}
+
+// main.dart
+MultiProvider(
+  providers: [
+    Provider<OfflineSync>.value(value: sync),
+    ChangeNotifierProvider(create: (_) => TodoNotifier(todos)),
+    StreamProvider<SyncState>(
+      create: (_) => sync.watchState(),
+      initialData: const SyncState.initial(),
+    ),
+  ],
+  child: const MyApp(),
+);
+```
+
+With `StreamProvider` wired up, the status bar is a one-liner anywhere in the tree:
+
+```dart
+final state = context.watch<SyncState>();
+if (!state.isOnline) return Text('Offline · ${state.unsynced} unsynced');
+```
+
+### Riverpod
+
+`StreamProvider` maps onto `watch()` exactly, so there is no glue code at all:
+
+```dart
+final syncProvider = Provider<OfflineSync>((ref) {
+  final sync = OfflineSync(/* ... */);
+  ref.onDispose(sync.dispose);
+  sync.start();
+  return sync;
+});
+
+final todosCollectionProvider = Provider<Collection<TodoDto>>(
+  (ref) => ref.watch(syncProvider).collection<TodoDto>('todos'),
+);
+
+final todosProvider =
+    StreamProvider<List<TodoDto>>((ref) => ref.watch(todosCollectionProvider).watch());
+
+final syncStateProvider =
+    StreamProvider<SyncState>((ref) => ref.watch(syncProvider).watchState());
+
+// Writes belong in a Notifier (or just call the collection directly from the widget).
+class TodoController extends Notifier<void> {
+  @override
+  void build() {}
+
+  Future<void> toggle(TodoDto t) =>
+      ref.read(todosCollectionProvider).save(t.toggled());
+}
+final todoControllerProvider = NotifierProvider<TodoController, void>(TodoController.new);
+
+// In a widget:
+ref.watch(todosProvider).when(
+      data: (items) => TodoList(items),
+      loading: () => const CircularProgressIndicator(),
+      error: (e, _) => Text('$e'),
+    );
+```
+
+### BLoC / Cubit (`flutter_bloc`)
+
+The collection stream is the event source; the cubit only transforms it into states.
+
+```dart
+sealed class TodoState {}
+class TodoLoading extends TodoState {}
+class TodoLoaded extends TodoState {
+  TodoLoaded(this.items, this.sync);
+  final List<TodoDto> items;
+  final SyncState sync;
+}
+
+class TodoCubit extends Cubit<TodoState> {
+  TodoCubit(this._todos, this._sync) : super(TodoLoading()) {
+    _todoSub = _todos.watch().listen(_emit);
+    _stateSub = _sync.watchState().listen((s) {
+      _syncState = s;
+      _emit(_items);
+    });
+  }
+
+  final Collection<TodoDto> _todos;
+  final OfflineSync _sync;
+  late final StreamSubscription<List<TodoDto>> _todoSub;
+  late final StreamSubscription<SyncState> _stateSub;
+  List<TodoDto> _items = const [];
+  SyncState _syncState = const SyncState.initial();
+
+  void _emit(List<TodoDto> items) {
+    _items = items;
+    emit(TodoLoaded(items, _syncState));
+  }
+
+  // No loading flag, no optimistic-update bookkeeping: the write is already local.
+  Future<void> toggle(TodoDto t) => _todos.save(t.toggled());
+  Future<void> retryFailed() => _sync.retryAllFailed();
+
+  @override
+  Future<void> close() async {
+    await _todoSub.cancel();
+    await _stateSub.cancel();
+    return super.close();
+  }
+}
+```
+
+If you prefer event-driven `Bloc` over `Cubit`, feed the subscription into `add()`
+(`_todos.watch().listen((i) => add(TodosChanged(i)))`) and handle it with `emit.forEach`.
+
+### GetX
+
+```dart
+class TodoController extends GetxController {
+  TodoController(this._todos, this._sync);
+  final Collection<TodoDto> _todos;
+  final OfflineSync _sync;
+
+  final items = <TodoDto>[].obs;
+  final syncState = const SyncState.initial().obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    items.bindStream(_todos.watch());
+    syncState.bindStream(_sync.watchState());
+  }
+
+  Future<void> toggle(TodoDto t) => _todos.save(t.toggled());
+}
+
+// Obx(() => Text('${controller.items.length} todos · ${controller.syncState.value.unsynced} unsynced'))
+```
+
+`bindStream` cancels its subscription with the controller, so there's nothing else to clean
+up.
+
+### MobX
+
+```dart
+class TodoStore = _TodoStore with _$TodoStore;
+
+abstract class _TodoStore with Store {
+  _TodoStore(this._todos) {
+    items = ObservableStream(_todos.watch());
+  }
+
+  final Collection<TodoDto> _todos;
+
+  @observable
+  late ObservableStream<List<TodoDto>> items;
+
+  @action
+  Future<void> toggle(TodoDto t) => _todos.save(t.toggled());
+}
+
+// Observer(builder: (_) => Text('${store.items.value?.length ?? 0} todos'))
+```
+
+### signals
+
+```dart
+final todosSignal = todos.watch().toSignal(initialValue: const <TodoDto>[]);
+final syncSignal = sync.watchState().toSignal(initialValue: const SyncState.initial());
+
+// Watch((_) => Text('${todosSignal.value.length} · ${syncSignal.value.unsynced} unsynced'))
+```
+
+### Redux
+
+```dart
+// Middleware/epic side: one subscription dispatches into the store.
+todos.watch().listen((items) => store.dispatch(TodosUpdated(items)));
+sync.watchState().listen((s) => store.dispatch(SyncStateUpdated(s)));
+
+// Reducer stays trivial — it replaces, it does not merge.
+AppState todosReducer(AppState state, dynamic action) => switch (action) {
+      TodosUpdated(:final items) => state.copyWith(todos: items),
+      SyncStateUpdated(:final syncState) => state.copyWith(sync: syncState),
+      _ => state,
+    };
+
+// Action creators call the collection and let the stream close the loop.
+ThunkAction<AppState> toggleTodo(TodoDto t) => (store) => todos.save(t.toggled());
+```
+
+### Pure Dart — no Flutter, no state management
+
+The same code runs in a CLI or on a server, which is the real test of the claim:
+
+```dart
+final sub = todos.watch().listen((items) => print('${items.length} todos'));
+await todos.save(TodoDto(id: 't1', title: 'from a server job', done: false));
+await sync.syncNow();
+await sub.cancel();
+await sync.dispose();
+```
+
+### Choosing where `OfflineSync` lives
+
+| Setup | Where to construct it | How to dispose |
+| --- | --- | --- |
+| Provider | `Provider<OfflineSync>.value` above `MaterialApp` | in your app's teardown / `dispose` |
+| Riverpod | `Provider` + `ref.onDispose(sync.dispose)` | automatic |
+| BLoC | a DI container (`get_it`) injected into blocs | on container reset |
+| GetX | `Get.put(sync, permanent: true)` | `Get.delete` / app exit |
+| None | a top-level `final` in `main.dart` | `dispose()` before exit |
+
+Whatever the setup: one instance, `start()` once, `dispose()` once.
+
+### What *not* to do
+
+- **Don't `await` a save for the sake of the network.** `save`/`delete` complete after the
+  local write; awaiting them tells you the row is stored, not that it reached the server.
+  The only thing that reports remote progress is `watchState()` / `events`.
+- **Don't rebuild a widget per `SyncEvent`.** `sync.events` is a firehose meant for logging,
+  analytics and one-off reactions (e.g. `AuthFailure` → refresh token → `sync.resume()`).
+  `watchState()` is the one that's shaped for rebuilds.
+- **Don't register the same collection twice** because two features need it — call
+  `sync.collection<TodoDto>('todos')` to look up the existing one.
+- **Don't hold the engine in a widget's `State`.** A hot reload or a route pop will dispose
+  the queue out from under in-flight operations.
+
 ## Production adapters (what you still need to write)
 
 `InMemoryLocalStore<T>` and `InMemoryRemoteStore<T>` are test/prototyping doubles, not
@@ -441,7 +777,7 @@ production adapters (per [`DESIGN.md`](DESIGN.md#3-core-domain-model-mvp)). Befo
   works but must be driven explicitly (`setOnline()`/`setOffline()`). For a real app use
   `ReachabilityConnectivityMonitor` with a probe against your own backend, optionally
   re-checked from a `connectivity_plus` stream (device network state is not the same thing
-  as "the backend is reachable" — see `DESIGN.md` §8/AGENTS.md §13).
+  as "the backend is reachable" — see `DESIGN.md` §8).
 
 ## Development
 
@@ -457,6 +793,5 @@ The `example/` directory has both a Flutter app (`flutter run`, shows the
 PENDING → SYNCING → SYNCED lifecycle with an embedded Sync Inspector) and a plain-Dart
 walkthrough of every behavior (`cd example && dart run bin/local_first_sync_example.dart`).
 
-See [`CLAUDE.md`](CLAUDE.md) for repository layout conventions and
-[`DESIGN.md`](DESIGN.md) for the architecture rationale and staged roadmap (CRDT-style
-merge and the state-management adapter packages remain out of scope).
+See [`DESIGN.md`](DESIGN.md) for the architecture rationale and staged roadmap
+(CRDT-style merge and the state-management adapter packages remain out of scope).
