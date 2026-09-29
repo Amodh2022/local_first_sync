@@ -12,6 +12,9 @@ First release.
 - Implements `IdempotentRemoteStore`: each operation's idempotency key goes out
   as an `Idempotency-Key` header and stays the same across retries and
   restarts.
-- Per-request `headers` callback for auth tokens that refresh.
+- Honors `Retry-After` (seconds or HTTP date) on 408, 429 and 5xx responses.
+  The engine never retries sooner than the server asked.
+- Per-request `headers` callback for auth tokens that refresh. Pair it with
+  core's `SyncConfig.onAuthFailure` to refresh a token and retry automatically.
 - `PullableRestRemoteStore<T>`: opt-in pull sync via `GET /things?since=…`,
   with a configurable parameter name and envelope decoding.

@@ -534,7 +534,6 @@ class _StatusChip extends StatelessWidget {
       SyncStatus.failed => (Colors.red, 'FAILED'),
       SyncStatus.blocked => (Colors.purple, 'BLOCKED'),
       SyncStatus.cancelled => (Colors.grey, 'CANCELLED'),
-      SyncStatus.conflict => (Colors.deepOrange, 'CONFLICT'),
       _ => (Colors.blueGrey, 'PENDING'),
     };
 

@@ -33,6 +33,7 @@ export 'src/dependency/dependency_graph.dart';
 export 'src/dependency/temp_id_registry.dart';
 export 'src/inspector/sync_inspector.dart';
 export 'src/local_first_sync_facade.dart';
+export 'src/metadata/sync_metadata_store.dart';
 export 'src/queue/in_memory_sync_queue.dart';
 export 'src/queue/operation_coalescer.dart';
 export 'src/queue/persistent_sync_queue.dart';

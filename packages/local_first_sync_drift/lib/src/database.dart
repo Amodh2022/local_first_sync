@@ -28,13 +28,27 @@ class LocalFirstOperations extends Table {
   Set<Column<Object>> get primaryKey => {operationId};
 }
 
-/// The Drift database behind [DriftLocalStore] and [DriftOperationStore].
+/// Engine bookkeeping, such as each collection's pull cursor, as key–value
+/// strings. See `SyncMetadataStore`.
+@DataClassName('LocalFirstMetadataRow')
+class LocalFirstMetadata extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {key};
+}
+
+/// The Drift database behind [DriftLocalStore], [DriftOperationStore] and
+/// [DriftMetadataStore].
 ///
 /// Pass whichever executor fits your platform — `driftDatabase(name: ...)`
 /// from `drift_flutter`, `NativeDatabase` from `drift/native.dart`, or a
 /// `WasmDatabase` on the web. Keep one instance for the life of the app and
 /// share it between every store.
-@DriftDatabase(tables: [LocalFirstEntities, LocalFirstOperations])
+@DriftDatabase(
+  tables: [LocalFirstEntities, LocalFirstOperations, LocalFirstMetadata],
+)
 class LocalFirstDatabase extends _$LocalFirstDatabase {
   LocalFirstDatabase(super.executor);
 

@@ -3,6 +3,7 @@ import 'connectivity/connectivity_monitor.dart';
 import 'core/identifiable.dart';
 import 'core/sync_events.dart';
 import 'inspector/sync_inspector.dart';
+import 'metadata/sync_metadata_store.dart';
 import 'queue/in_memory_sync_queue.dart';
 import 'queue/sync_queue.dart';
 import 'remote/remote_store.dart';
@@ -33,11 +34,16 @@ class OfflineSync {
     SyncConfig config = const SyncConfig(),
     SyncQueue? queue,
     ConnectivityMonitor? connectivity,
+    SyncMetadataStore? metadataStore,
   })  : _queue = queue ?? InMemorySyncQueue(),
         _connectivity = connectivity ?? ManualConnectivityMonitor() {
     _config = config;
-    _engine =
-        SyncEngine(queue: _queue, connectivity: _connectivity, config: config);
+    _engine = SyncEngine(
+      queue: _queue,
+      connectivity: _connectivity,
+      config: config,
+      metadata: metadataStore,
+    );
   }
 
   final SyncQueue _queue;
@@ -49,6 +55,10 @@ class OfflineSync {
   ConnectivityMonitor get connectivity => _connectivity;
 
   Stream<SyncEvent> get events => _engine.events;
+
+  /// The last [SyncConfig.eventHistoryLimit] events, oldest first. Lets a
+  /// debug screen opened *after* a failure still show what happened.
+  List<SyncEvent> get recentEvents => _engine.recentEvents;
 
   /// The queue this instance drains. Exposed so an app can build its own
   /// diagnostics on top; prefer [inspector] and [watchState] for anything
@@ -75,9 +85,11 @@ class OfflineSync {
 
   SyncInspector inspector({Set<String> redactedFields = const {}}) =>
       SyncInspector(
-          queue: _queue,
-          connectivity: _connectivity,
-          redactedFields: redactedFields);
+        queue: _queue,
+        connectivity: _connectivity,
+        redactedFields: redactedFields,
+        eventHistory: () => _engine.recentEvents,
+      );
 
   /// Wires a [Collection] up to local + remote storage and registers it with
   /// the sync engine, returning the [Collection] apps read/write through.
@@ -134,6 +146,11 @@ class OfflineSync {
   /// haven't synced yet are never overwritten. See [SyncEngine.pullNow].
   Future<int> pullNow({String? collection}) =>
       _engine.pullNow(collection: collection);
+
+  /// When [collection] was last pulled successfully, including by an earlier
+  /// run of the app if a [SyncMetadataStore] was provided.
+  Future<DateTime?> lastPulledAt(String collection) =>
+      _engine.loadLastPulledAt(collection);
 
   /// Suspends syncing without discarding anything — writes keep queuing.
   /// The canonical use is an [AuthFailure]: pause, refresh the token,

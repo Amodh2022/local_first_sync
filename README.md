@@ -114,9 +114,11 @@ await orderItems.save(
 `orders`'s `RemoteStore` is registered with `referenceFields: ['orderId']` on the
 `OrderItem` collection's registration, so once the order's `create` returns a
 server-assigned id, `TempIdRegistry` maps `temp_order_1 -> <server id>` and every
-still-queued `OrderItem` operation's `orderId` is rewritten before it syncs. See
-[`DESIGN.md` §6](DESIGN.md#6-dependency-model) for the exact propagation boundaries
-(already-persisted local rows are **not** auto-rewritten — that's an adapter concern).
+still-queued `OrderItem` operation's `orderId` is rewritten before it syncs. Rows already
+in local storage that reference `temp_order_1` through a declared reference field are
+rewritten too, so the UI never shows a dangling temporary id. That costs one scan of
+each collection declaring `referenceFields`, per create whose id changes; turn it off
+with `SyncConfig(rewriteLocalReferences: false)` if your `LocalStore` already handles it.
 
 ### Conflict resolution
 
@@ -179,10 +181,36 @@ To make that re-send safe on the server side, have your remote adapter implement
 which you forward to your backend — typically as an `Idempotency-Key` header.
 `RestRemoteStore` from `local_first_sync_rest` does this for you.
 
+### Expired tokens and rate limits
+
+```dart
+final sync = OfflineSync(
+  config: SyncConfig(
+    onAuthFailure: (failure) async =>
+        await auth.refresh() ? AuthRecovery.retry : AuthRecovery.pause,
+  ),
+);
+```
+
+When a remote call throws `AuthFailure`, the engine asks `onAuthFailure` what to do
+before failing the operation:
+- `retry` re-sends the operation once, without using up its retry budget.
+- `pause` stops syncing and keeps the write queued until `resume()`.
+- `fail` fails the operation, which is also what happens with no handler.
+
+If several operations in one batch hit the same expired token, they share a single call
+to the handler. An operation that is rejected again right after a refresh fails instead
+of looping.
+
+For rate limiting, throw `NetworkFailure(message, retryAfter: ...)` (or
+`ServerFailure(503, message, retryAfter: ...)`). The engine then waits at least that
+long before the next attempt, even if its own backoff would retry sooner.
+`RestRemoteStore` fills this in from the `Retry-After` header.
+
 ### Operating the queue
 
 ```dart
-sync.pause();                          // e.g. on a 401, while you refresh the token
+sync.pause();                          // e.g. while the user signs back in
 sync.resume();                         // writes kept queuing the whole time
 await sync.retryOperation(opId);       // the "Retry" button next to a failed row
 await sync.retryAllFailed();           // returns how many were requeued
@@ -208,6 +236,20 @@ await sync.pullNow();                                  // or SyncConfig(pullInte
 A pull **never overwrites an entity that still has unsynced work queued** — that write is
 the user's and it hasn't reached the backend yet. The `PullCompleted` event reports how
 many records were applied and how many were skipped for that reason.
+
+Give `OfflineSync` a `SyncMetadataStore` and each collection's pull position survives
+restarts. Without one, the first pull after every launch passes `since: null`, which
+re-downloads everything:
+
+```dart
+final sync = OfflineSync(
+  metadataStore: DriftMetadataStore(db), // from local_first_sync_drift
+);
+print(await sync.lastPulledAt('users'));  // includes a cursor from the last run
+```
+
+`SyncMetadataStore` has just two methods, `read` and `write`, so it's also easy to back
+with SharedPreferences or a file.
 
 ### Priority, coalescing and rollback
 
@@ -255,7 +297,16 @@ for (final op in snapshot.operations) {
   print(inspector.explain(op));
 }
 inspector.watch().listen((s) => updateSyncBadge(s));
+
+// The recent event trail, including events from before this screen opened:
+for (final event in inspector.historyFor(failedOp.operationId)) {
+  print('${event.timestamp} ${event.runtimeType}');   // Started, Failed(error), ...
+}
 ```
+
+The engine keeps the last `SyncConfig.eventHistoryLimit` events (100 by default; `0`
+turns the history off). `explain` says what state an operation is in now, and
+`historyFor` shows how it got there. The same `redactedFields` apply to both.
 
 ## Performance: how to get the most out of it
 
@@ -289,7 +340,8 @@ things are on you as the integrator:
    aggressively a flaky network is hammered; `maxAttempts` (default unbounded) should
    usually be set for anything that isn't safe to retry forever. Throw the specific
    `SyncFailure` subtype from your `RemoteStore` (`NetworkFailure`, `TimeoutFailure`,
-   `ServerFailure(statusCode, ...)`, `ValidationFailure`, `AuthFailure`, `ConflictFailure`) —
+   `ServerFailure(statusCode, ...)`, `ValidationFailure`, `AuthFailure`, `ConflictFailure`,
+   with `retryAfter` set when the server says how long to wait) —
    the engine's retry/backoff decision is driven entirely by `SyncFailure.retryable`, not by
    inspecting exception messages, so misclassifying an error (e.g. letting a raw `HttpException`
    escape as `UnknownFailure`) either wastes retries on a permanent failure or gives up on a

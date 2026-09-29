@@ -101,11 +101,16 @@ class RestRemoteStore<T extends Identifiable>
   /// | 5xx        | [ServerFailure]      | yes      |
   /// | other      | [ServerFailure]      | no       |
   ///
+  /// A `Retry-After` header on a retried status (408, 429, 5xx) becomes the
+  /// failure's [SyncFailure.retryAfter], so the engine waits at least that
+  /// long before the next attempt. See [parseRetryAfter].
+  ///
   /// A conflict's `remoteValue` is the response body decoded as a JSON
   /// object — the encoded server copy a [ConflictResolver] needs — or `null`
   /// when the body isn't one.
   SyncFailure mapFailure(http.Response response) {
     final code = response.statusCode;
+    final retryAfter = parseRetryAfter(response.headers['retry-after']);
     final message = 'HTTP $code from ${response.request?.method ?? ''} '
             '${response.request?.url ?? collectionUri}'
         .trim();
@@ -122,10 +127,46 @@ class RestRemoteStore<T extends Identifiable>
         return ValidationFailure(message);
       case 408:
       case 429:
-        return NetworkFailure(message);
+        return NetworkFailure(message, retryAfter: retryAfter);
       default:
-        return ServerFailure(code, message);
+        return ServerFailure(code, message, retryAfter: retryAfter);
     }
+  }
+
+  /// Parses an HTTP `Retry-After` value: either delay-seconds (`"120"`) or
+  /// an IMF-fixdate (`"Wed, 21 Oct 2026 07:28:00 GMT"`), measured from
+  /// [now]. Returns `null` for a missing or unparseable value, and
+  /// [Duration.zero] for a date already in the past.
+  static Duration? parseRetryAfter(String? value, {DateTime? now}) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    final seconds = int.tryParse(trimmed);
+    if (seconds != null) {
+      return seconds < 0 ? null : Duration(seconds: seconds);
+    }
+    final date = _parseImfFixdate(trimmed);
+    if (date == null) return null;
+    final delay = date.difference((now ?? DateTime.now()).toUtc());
+    return delay.isNegative ? Duration.zero : delay;
+  }
+
+  static const _months = {
+    'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, //
+    'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
+  };
+
+  static final _imfFixdate = RegExp(
+      r'^[A-Za-z]{3}, (\d{2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) GMT$');
+
+  /// `dart:io`'s `HttpDate` would do this, but importing `dart:io` would
+  /// drop web support.
+  static DateTime? _parseImfFixdate(String value) {
+    final m = _imfFixdate.firstMatch(value);
+    if (m == null) return null;
+    final month = _months[m[2]];
+    if (month == null) return null;
+    return DateTime.utc(int.parse(m[3]!), month, int.parse(m[1]!),
+        int.parse(m[4]!), int.parse(m[5]!), int.parse(m[6]!));
   }
 
   Future<T> _write(String method, Uri uri, T item, String? key) async {

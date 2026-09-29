@@ -1,6 +1,7 @@
 import '../conflict/conflict_resolver.dart';
 import '../core/identifiable.dart';
 import '../core/sync_operation.dart';
+import '../dependency/temp_id_registry.dart';
 import '../remote/remote_store.dart';
 import '../serialization/serializer.dart';
 import '../storage/local_store.dart';
@@ -90,6 +91,21 @@ class TypedCollectionBinding<T extends Identifiable>
 
   @override
   Future<void> applyDeleteResult(String id) => localStore.delete(id);
+
+  @override
+  Future<int> rewriteLocalReferences(String tempId, String realId) async {
+    if (referenceFields.isEmpty) return 0;
+    final mapping = TempIdRegistry()..register(tempId, realId);
+    var changed = 0;
+    for (final item in await localStore.getAll()) {
+      final payload = serializer.encode(item);
+      final rewritten = mapping.rewritePayload(payload, referenceFields);
+      if (identical(rewritten, payload)) continue;
+      await localStore.update(serializer.decode(rewritten));
+      changed++;
+    }
+    return changed;
+  }
 
   @override
   bool get supportsPull => remoteStore is PullableRemoteStore<T>;

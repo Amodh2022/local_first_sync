@@ -56,15 +56,49 @@ accepted the item exactly as sent.
 
 | Response | Thrown as | Engine behavior |
 |---|---|---|
-| 401, 403 | `AuthFailure` | permanent. Refresh the token, then `retryAllFailed()` |
+| 401, 403 | `AuthFailure` | goes to `SyncConfig.onAuthFailure` if set (see below), otherwise permanent |
 | 409, 412 | `ConflictFailure` (`remoteValue` = decoded JSON body) | routed to your `ConflictResolver` |
 | 400, 422 | `ValidationFailure` | permanent |
-| 408, 429 | `NetworkFailure` | retried with backoff |
-| 5xx | `ServerFailure` | retried with backoff |
+| 408, 429 | `NetworkFailure` | retried with backoff, waiting at least `Retry-After` |
+| 5xx | `ServerFailure` | retried with backoff, waiting at least `Retry-After` |
 | any other non-2xx | `ServerFailure` | permanent |
 | `http.ClientException` | `NetworkFailure` | retried |
 | `TimeoutException` | `TimeoutFailure` | retried |
 | 2xx body that doesn't decode | `UnknownFailure` | permanent (a retry would get the same body back) |
+
+`Retry-After` is read in both forms, seconds (`120`) and an HTTP date, and becomes the
+failure's `retryAfter`. The engine never retries sooner than that, even when its own
+backoff would. `RestRemoteStore.parseRetryAfter` is public if you need it in your own
+`mapFailure`.
+
+### Expired tokens
+
+Refresh the token in `SyncConfig.onAuthFailure`, and have `headers` read the current one.
+The engine then re-sends each rejected request once, and a whole batch of 401s triggers a
+single refresh:
+
+```dart
+final sync = OfflineSync(
+  config: SyncConfig(
+    onAuthFailure: (_) async =>
+        await auth.refresh() ? AuthRecovery.retry : AuthRecovery.pause,
+  ),
+);
+final todos = sync.registerCollection<Todo>(
+  name: 'todos',
+  localStore: todoStore,
+  remoteStore: RestRemoteStore<Todo>(
+    client: http.Client(),
+    collectionUri: Uri.parse('https://api.example.com/todos'),
+    serializer: const TodoSerializer(),
+    headers: () async => {'Authorization': 'Bearer ${await auth.token()}'},
+  ),
+  serializer: const TodoSerializer(),
+);
+```
+
+`AuthRecovery.pause` stops syncing and keeps every write queued until you call
+`sync.resume()`, for example after the user signs in again.
 
 For conflict resolution, the 409/412 response body should be the server's current copy of
 the record, in the shape your `Serializer` decodes.

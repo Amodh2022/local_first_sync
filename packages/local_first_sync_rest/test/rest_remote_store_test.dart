@@ -169,6 +169,37 @@ void main() {
       expect((failure as ConflictFailure).remoteValue, isNull);
     });
 
+    test('Retry-After on 429 and 503 becomes retryAfter', () async {
+      for (final status in [429, 503]) {
+        final store = _store((_) async =>
+            http.Response('', status, headers: {'retry-after': '120'}));
+        await expectLater(
+          store.create(TestUser(id: '1', name: 'A')),
+          throwsA(isA<SyncFailure>()
+              .having((f) => f.retryable, 'retryable', isTrue)
+              .having((f) => f.retryAfter, 'retryAfter',
+                  const Duration(seconds: 120))),
+        );
+      }
+    });
+
+    test('parseRetryAfter handles seconds, dates and junk', () {
+      final now = DateTime.utc(2026, 10, 21, 7, 28, 0);
+      expect(
+          RestRemoteStore.parseRetryAfter('30'), const Duration(seconds: 30));
+      expect(
+          RestRemoteStore.parseRetryAfter('Wed, 21 Oct 2026 07:30:00 GMT',
+              now: now),
+          const Duration(minutes: 2));
+      expect(
+          RestRemoteStore.parseRetryAfter('Wed, 21 Oct 2026 07:00:00 GMT',
+              now: now),
+          Duration.zero);
+      expect(RestRemoteStore.parseRetryAfter('soon'), isNull);
+      expect(RestRemoteStore.parseRetryAfter('-5'), isNull);
+      expect(RestRemoteStore.parseRetryAfter(null), isNull);
+    });
+
     test('ClientException -> NetworkFailure', () async {
       final store =
           _store((_) async => throw http.ClientException('connection reset'));

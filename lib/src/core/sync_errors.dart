@@ -6,20 +6,30 @@
 /// raw HTTP/platform exception escape — that's the only way the engine can
 /// honor "never retry permanent failures forever".
 sealed class SyncFailure implements Exception {
-  const SyncFailure(this.message, {required this.retryable});
+  const SyncFailure(this.message, {required this.retryable, this.retryAfter});
 
   final String message;
 
   /// Whether the [SyncEngine] should schedule a retry for this failure.
   final bool retryable;
 
+  /// How long the backend asked the client to wait before trying again
+  /// (e.g. an HTTP `Retry-After` header on a 429 or 503). When set on a
+  /// retryable failure, the engine waits at least this long, even if its
+  /// own backoff would have retried sooner. Ignored for permanent failures.
+  final Duration? retryAfter;
+
   @override
   String toString() => message;
 }
 
 /// The device/socket could not reach the backend at all.
+///
+/// Also the right type for "slow down" responses such as HTTP 429: pass the
+/// server's requested delay as [retryAfter].
 class NetworkFailure extends SyncFailure {
-  const NetworkFailure(super.message) : super(retryable: true);
+  const NetworkFailure(super.message, {super.retryAfter})
+      : super(retryable: true);
 }
 
 /// The request took too long.
@@ -30,7 +40,7 @@ class TimeoutFailure extends SyncFailure {
 /// The backend responded with an HTTP-style status code. 5xx is treated as
 /// transient; anything else is treated as permanent unless overridden.
 class ServerFailure extends SyncFailure {
-  ServerFailure(this.statusCode, String message)
+  ServerFailure(this.statusCode, String message, {super.retryAfter})
       : super(message, retryable: statusCode >= 500);
 
   final int statusCode;
