@@ -39,3 +39,8 @@ example/.dart_tool/
 example/pubspec.lock
 example/*.iml
 example/.idea/
+
+# Adapter packages under packages/ are published separately via
+# tool/publish_adapter.sh (pub applies this file to nested packages too).
+packages/
+tool/

@@ -12,14 +12,21 @@ abstract class CollectionBinding {
   /// sent.
   List<String> get referenceFields;
 
-  Future<Map<String, Object?>> remoteCreate(Map<String, Object?> payload);
+  /// The `remote*` methods receive the operation's
+  /// [SyncOperation.idempotencyKey] so it can be forwarded to an
+  /// [IdempotentRemoteStore].
+  Future<Map<String, Object?>> remoteCreate(
+    Map<String, Object?> payload, {
+    String? idempotencyKey,
+  });
 
   Future<Map<String, Object?>> remoteUpdate(
     String id,
-    Map<String, Object?> payload,
-  );
+    Map<String, Object?> payload, {
+    String? idempotencyKey,
+  });
 
-  Future<void> remoteDelete(String id);
+  Future<void> remoteDelete(String id, {String? idempotencyKey});
 
   /// Applies a successful create's server response back to local storage,
   /// reassigning [tempId] if the server returned a different id. Returns the
@@ -59,6 +66,13 @@ abstract class CollectionBinding {
   /// when [payload] is `null` (the entity did not exist before the failed
   /// operation). Used for optimistic-write rollback.
   Future<void> applyRollback(String entityId, Map<String, Object?>? payload);
+
+  /// Rewrites [referenceFields] of locally stored records that still hold
+  /// [tempId] so they hold [realId] instead, after a create in *any*
+  /// collection was assigned a server id. Returns how many records changed.
+  ///
+  /// Has a no-op default so custom bindings keep compiling.
+  Future<int> rewriteLocalReferences(String tempId, String realId) async => 0;
 }
 
 /// The result of one [CollectionBinding.pull].

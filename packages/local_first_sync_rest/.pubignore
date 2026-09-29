@@ -1,0 +1,27 @@
+# A .pubignore REPLACES .gitignore for pub, so everything that must stay out
+# of the archive is listed here.
+
+# Development-only override pointing at the in-repo core package.
+pubspec_overrides.yaml
+
+# Generated
+build/
+.dart_tool/
+.pub-cache/
+.pub/
+coverage/
+pubspec.lock
+**/doc/api/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Agent tooling
+.claude/
+CLAUDE.md
+AGENTS.md
+agents.md

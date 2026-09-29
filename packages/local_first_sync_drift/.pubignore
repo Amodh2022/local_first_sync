@@ -1,0 +1,27 @@
+# Files excluded from the published package. A .pubignore REPLACES the
+# .gitignore for this directory as far as pub is concerned.
+
+# Development-only override of the core dependency.
+pubspec_overrides.yaml
+
+# Generated / tooling
+build/
+.dart_tool/
+.pub-cache/
+.pub/
+coverage/
+pubspec.lock
+**/doc/api/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Agent tooling
+.claude/
+CLAUDE.md
+AGENTS.md
+agents.md

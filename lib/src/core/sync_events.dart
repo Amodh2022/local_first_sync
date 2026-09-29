@@ -6,7 +6,7 @@ import 'sync_operation.dart';
 /// `Stream<SyncEvent>`, so any state-management adapter can listen without
 /// the core depending on it.
 sealed class SyncEvent {
-  SyncEvent() : timestamp = DateTime.now();
+  SyncEvent({DateTime? timestamp}) : timestamp = timestamp ?? DateTime.now();
 
   final DateTime timestamp;
 }
@@ -21,46 +21,46 @@ class SyncCompleted extends SyncEvent {
 }
 
 class OperationQueued extends SyncEvent {
-  OperationQueued(this.operation);
+  OperationQueued(this.operation, {super.timestamp});
 
   final SyncOperation operation;
 }
 
 class OperationStarted extends SyncEvent {
-  OperationStarted(this.operation);
+  OperationStarted(this.operation, {super.timestamp});
 
   final SyncOperation operation;
 }
 
 class OperationSucceeded extends SyncEvent {
-  OperationSucceeded(this.operation);
+  OperationSucceeded(this.operation, {super.timestamp});
 
   final SyncOperation operation;
 }
 
 class OperationFailed extends SyncEvent {
-  OperationFailed(this.operation, this.error);
+  OperationFailed(this.operation, this.error, {super.timestamp});
 
   final SyncOperation operation;
   final SyncFailure error;
 }
 
 class OperationBlocked extends SyncEvent {
-  OperationBlocked(this.operation, this.reason);
+  OperationBlocked(this.operation, this.reason, {super.timestamp});
 
   final SyncOperation operation;
   final String reason;
 }
 
 class ConflictDetected extends SyncEvent {
-  ConflictDetected(this.operation, this.remoteValue);
+  ConflictDetected(this.operation, this.remoteValue, {super.timestamp});
 
   final SyncOperation operation;
   final Object? remoteValue;
 }
 
 class RollbackPerformed extends SyncEvent {
-  RollbackPerformed(this.operation);
+  RollbackPerformed(this.operation, {super.timestamp});
 
   final SyncOperation operation;
 }
@@ -72,7 +72,7 @@ class SyncPaused extends SyncEvent {}
 class SyncResumed extends SyncEvent {}
 
 class OperationCancelled extends SyncEvent {
-  OperationCancelled(this.operation);
+  OperationCancelled(this.operation, {super.timestamp});
 
   final SyncOperation operation;
 }

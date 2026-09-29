@@ -1,3 +1,48 @@
+## 0.2.0
+
+- **Idempotency keys reach the backend.** New opt-in `IdempotentRemoteStore<T>`:
+  when a remote store implements it, the engine calls `createWithKey`/
+  `updateWithKey`/`deleteWithKey` with the operation's `idempotencyKey`, which
+  is stable across retries, coalescing and restarts. Before this, the key was
+  persisted but never passed to the remote store, so a write re-sent after a
+  crash could be applied twice.
+- `InMemoryRemoteStore` implements `IdempotentRemoteStore`. A repeated key
+  returns the first result without applying the write again, and
+  `receivedIdempotencyKeys`/`appliedWrites` expose what happened to tests.
+- **Breaking (only if you implement `CollectionBinding` yourself):**
+  `remoteCreate`/`remoteUpdate`/`remoteDelete` take an optional named
+  `idempotencyKey`. Apps that use `OfflineSync.registerCollection` are
+  unaffected.
+- **Auth recovery.** `SyncConfig.onAuthFailure` runs before an `AuthFailure`
+  fails an operation. It returns `AuthRecovery.retry` (re-send once, with no
+  retry budget used), `pause` (stop syncing and keep the write queued until
+  `resume()`) or `fail`. One batch of 401s triggers a single call.
+- **`Retry-After`.** `NetworkFailure` and `ServerFailure` take an optional
+  `retryAfter`, and the engine waits at least that long before the next
+  attempt.
+- **Pull position survives restarts.** A new `SyncMetadataStore` (with
+  `InMemorySyncMetadataStore`), passed as `OfflineSync(metadataStore: ...)`,
+  saves each collection's pull cursor. Without it every launch pulls
+  everything again. `OfflineSync.lastPulledAt(collection)` reads the saved
+  value.
+- **Temporary ids are rewritten in local rows too.** When a create gets a
+  server id, stored records whose declared `referenceFields` still hold the
+  temporary id are updated, not only queued operations.
+  `SyncConfig.rewriteLocalReferences` (on by default) turns this off.
+  `CollectionBinding` gains `rewriteLocalReferences`, which has a no-op
+  default.
+- **Event history.** The engine keeps the last `SyncConfig.eventHistoryLimit`
+  events (default 100). They're available as `OfflineSync.recentEvents`,
+  `SyncInspector.recentEvents` and `SyncInspector.historyFor(operationId)`,
+  redacted like snapshots. Every `SyncEvent` constructor now accepts an
+  optional `timestamp`.
+- **Deprecated** `SyncStatus.created`, `queued` and `conflict`. The engine
+  never sets them, and they will be removed in 1.0.
+- First-party adapters: `local_first_sync_drift` (persistent `LocalStore` and
+  `SyncOperationStore` on Drift) and `local_first_sync_rest` (`RemoteStore` on
+  `package:http`). They are published as separate packages, so this package
+  still has no runtime dependencies.
+
 ## 0.1.0
 
 First release. Local-first sync for Dart and Flutter: writes land in local

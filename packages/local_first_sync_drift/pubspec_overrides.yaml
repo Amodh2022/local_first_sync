@@ -1,0 +1,5 @@
+# Development only: build against the core in this repository. Excluded from
+# the published archive by .pubignore.
+dependency_overrides:
+  local_first_sync:
+    path: ../..

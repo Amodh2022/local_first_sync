@@ -2,10 +2,12 @@
 enum SyncStatus {
   /// Just created, not yet handed to the queue. Transient — operations
   /// enqueued via [Collection] start at [ready] or [blocked].
+  @Deprecated('Never set by the engine. Will be removed in 1.0.')
   created,
 
-  /// Persisted in the queue but not yet eligible to sync (reserved for
-  /// future explicit-hold use cases; MVP goes straight to ready/blocked).
+  /// Reserved for an explicit-hold state that was never built; operations
+  /// go straight to [ready] or [blocked].
+  @Deprecated('Never set by the engine. Will be removed in 1.0.')
   queued,
 
   /// Eligible to sync on the next drain.
@@ -29,6 +31,7 @@ enum SyncStatus {
 
   /// The remote value diverged from the local value in a way the configured
   /// [ConflictResolver] had to adjudicate.
+  @Deprecated('Never set by the engine. Will be removed in 1.0.')
   conflict,
 
   /// Explicitly cancelled by the application; never synced.

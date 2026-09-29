@@ -1,0 +1,2 @@
+# Static analysis configuration. Run with `dart analyze`.
+include: package:lints/recommended.yaml

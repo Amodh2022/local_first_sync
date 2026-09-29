@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import '../connectivity/connectivity_monitor.dart';
 import '../core/sync_errors.dart';
@@ -7,6 +8,7 @@ import '../core/sync_operation.dart';
 import '../core/sync_status.dart';
 import '../dependency/dependency_graph.dart';
 import '../dependency/temp_id_registry.dart';
+import '../metadata/sync_metadata_store.dart';
 import '../queue/sync_queue.dart';
 import 'collection_binding.dart';
 import 'sync_config.dart';
@@ -25,13 +27,16 @@ class SyncEngine {
     required SyncQueue queue,
     required ConnectivityMonitor connectivity,
     SyncConfig config = const SyncConfig(),
+    SyncMetadataStore? metadata,
   })  : _queue = queue,
         _connectivity = connectivity,
-        _config = config;
+        _config = config,
+        _metadata = metadata ?? InMemorySyncMetadataStore();
 
   final SyncQueue _queue;
   final ConnectivityMonitor _connectivity;
   final SyncConfig _config;
+  final SyncMetadataStore _metadata;
   final _bindings = <String, CollectionBinding>{};
   final _eventsController = StreamController<SyncEvent>.broadcast();
   final _runtimeChanges = StreamController<void>.broadcast();
@@ -48,8 +53,31 @@ class SyncEngine {
   DateTime? _lastSyncedAt;
   String? _lastError;
   final _lastPulledAt = <String, DateTime>{};
+  final _history = ListQueue<SyncEvent>();
+
+  /// Operations that already got one retry after [SyncConfig.onAuthFailure]
+  /// returned [AuthRecovery.retry]; a second [AuthFailure] fails them.
+  final _authRetried = <String>{};
+
+  /// The auth handler's pending result for the current batch, shared by
+  /// every operation in it that hit the same expired credentials.
+  Future<AuthRecovery>? _authRecovery;
 
   Stream<SyncEvent> get events => _eventsController.stream;
+
+  /// The last [SyncConfig.eventHistoryLimit] events, oldest first.
+  List<SyncEvent> get recentEvents => List.unmodifiable(_history);
+
+  void _emit(SyncEvent event) {
+    final limit = _config.eventHistoryLimit;
+    if (limit > 0) {
+      _history.addLast(event);
+      while (_history.length > limit) {
+        _history.removeFirst();
+      }
+    }
+    if (!_eventsController.isClosed) _eventsController.add(event);
+  }
 
   SyncConfig get config => _config;
 
@@ -173,14 +201,14 @@ class SyncEngine {
     if (_paused) return;
     _paused = true;
     _retryTimer?.cancel();
-    _eventsController.add(SyncPaused());
+    _emit(SyncPaused());
     _notifyRuntimeChange();
   }
 
   void resume() {
     if (!_paused) return;
     _paused = false;
-    _eventsController.add(SyncResumed());
+    _emit(SyncResumed());
     _notifyRuntimeChange();
     unawaited(syncNow());
   }
@@ -240,7 +268,7 @@ class SyncEngine {
       updatedAt: DateTime.now(),
     );
     await _queue.updateOperation(cancelled);
-    _eventsController.add(OperationCancelled(cancelled));
+    _emit(OperationCancelled(cancelled));
     await _blockDependents(
       operationId,
       'Dependency ${op.collection}/${op.entityId} was cancelled, so this '
@@ -317,13 +345,14 @@ class SyncEngine {
 
     var succeeded = 0;
     var failed = 0;
-    _eventsController.add(SyncStarted());
+    _emit(SyncStarted());
 
     while (!_paused) {
       final batch = _selectBatch(await _queue.all());
       if (batch.isEmpty) break;
 
       final results = await Future.wait(batch.map(_processOperation));
+      _authRecovery = null;
       for (final ok in results) {
         ok ? succeeded++ : failed++;
       }
@@ -339,7 +368,7 @@ class SyncEngine {
     final retention = _config.retainSyncedOperations;
     if (retention != null) await purgeCompleted(olderThan: retention);
 
-    _eventsController.add(SyncCompleted(succeeded: succeeded, failed: failed));
+    _emit(SyncCompleted(succeeded: succeeded, failed: failed));
   }
 
   /// Wakes the engine up when the earliest backoff delay elapses.
@@ -427,7 +456,7 @@ class SyncEngine {
     final syncingOp =
         op.copyWith(status: SyncStatus.syncing, updatedAt: DateTime.now());
     await _queue.updateOperation(syncingOp);
-    _eventsController.add(OperationStarted(syncingOp));
+    _emit(OperationStarted(syncingOp));
 
     try {
       final payload =
@@ -435,26 +464,30 @@ class SyncEngine {
 
       switch (op.type) {
         case SyncOperationType.create:
-          final result =
-              await _withTimeout(() => binding.remoteCreate(payload));
+          final result = await _withTimeout(() =>
+              binding.remoteCreate(payload, idempotencyKey: op.idempotencyKey));
           final finalId = await binding.applyCreateResult(op.entityId, result);
           if (finalId != op.entityId) {
             tempIds.register(op.entityId, finalId);
             await _rewriteDependentPayloads(op.operationId);
+            await _rewriteLocalReferences(op.entityId, finalId);
           }
         case SyncOperationType.update:
-          final result = await _withTimeout(
-              () => binding.remoteUpdate(op.entityId, payload));
+          final result = await _withTimeout(() => binding.remoteUpdate(
+              op.entityId, payload,
+              idempotencyKey: op.idempotencyKey));
           await binding.applyUpdateResult(op.entityId, result);
         case SyncOperationType.delete:
-          await _withTimeout(() => binding.remoteDelete(op.entityId));
+          await _withTimeout(() => binding.remoteDelete(op.entityId,
+              idempotencyKey: op.idempotencyKey));
           await binding.applyDeleteResult(op.entityId);
       }
 
       final synced = syncingOp.copyWith(
           status: SyncStatus.synced, updatedAt: DateTime.now());
       await _queue.updateOperation(synced);
-      _eventsController.add(OperationSucceeded(synced));
+      _authRetried.remove(op.operationId);
+      _emit(OperationSucceeded(synced));
       return true;
     } on ConflictFailure catch (e) {
       return _handleConflict(syncingOp, e);
@@ -466,7 +499,7 @@ class SyncEngine {
   }
 
   Future<bool> _handleConflict(SyncOperation op, ConflictFailure error) async {
-    _eventsController.add(ConflictDetected(op, error.remoteValue));
+    _emit(ConflictDetected(op, error.remoteValue));
     final binding = _bindings[op.collection]!;
     final resolvedPayload =
         await binding.resolveConflict(op, error.remoteValue);
@@ -491,6 +524,11 @@ class SyncEngine {
   }
 
   Future<bool> _handleFailure(SyncOperation op, SyncFailure error) async {
+    if (error is AuthFailure && await _recoverFromAuthFailure(op, error)) {
+      return false;
+    }
+    _authRetried.remove(op.operationId);
+
     final retryCount = op.retryCount + 1;
     final shouldRetry = _config.retryPolicy.shouldRetry(error, op.retryCount);
     final updated = op.copyWith(
@@ -498,13 +536,13 @@ class SyncEngine {
       retryCount: retryCount,
       lastError: error.message,
       nextRetryAt: shouldRetry
-          ? DateTime.now().add(_config.retryPolicy.delayForAttempt(retryCount))
+          ? DateTime.now().add(_retryDelay(error, retryCount))
           : null,
       updatedAt: DateTime.now(),
     );
     await _queue.updateOperation(updated);
     _lastError = error.message;
-    _eventsController.add(OperationFailed(updated, error));
+    _emit(OperationFailed(updated, error));
 
     if (!shouldRetry) {
       if (_config.rollbackOnPermanentFailure) {
@@ -519,6 +557,65 @@ class SyncEngine {
     return false;
   }
 
+  /// The engine's own backoff, stretched to the backend's
+  /// [SyncFailure.retryAfter] when the backend asked for a longer wait.
+  Duration _retryDelay(SyncFailure error, int attempt) {
+    final backoff = _config.retryPolicy.delayForAttempt(attempt);
+    final requested = error.retryAfter;
+    return requested != null && requested > backoff ? requested : backoff;
+  }
+
+  /// Runs [SyncConfig.onAuthFailure] for [op]. Returns `true` if the
+  /// failure was handled (the operation was requeued, possibly with the
+  /// engine paused), or `false` if it should fail as usual.
+  Future<bool> _recoverFromAuthFailure(
+    SyncOperation op,
+    AuthFailure error,
+  ) async {
+    final handler = _config.onAuthFailure;
+    if (handler == null) return false;
+    // Already retried once with refreshed credentials: fail, don't loop.
+    if (_authRetried.contains(op.operationId)) return false;
+
+    final AuthRecovery decision;
+    try {
+      decision = await (_authRecovery ??= handler(error));
+    } catch (_) {
+      return false;
+    }
+    if (decision == AuthRecovery.fail) return false;
+
+    final requeued = op.copyWith(
+      status: SyncStatus.ready,
+      lastError: error.message,
+      nextRetryAt: null,
+      updatedAt: DateTime.now(),
+    );
+    await _queue.updateOperation(requeued);
+    _lastError = error.message;
+    _emit(OperationFailed(requeued, error));
+    if (decision == AuthRecovery.retry) {
+      _authRetried.add(op.operationId);
+    } else {
+      pause();
+    }
+    return true;
+  }
+
+  /// See [SyncConfig.rewriteLocalReferences]. Never throws: the create has
+  /// already succeeded on the backend, and failing it here would re-send it.
+  Future<void> _rewriteLocalReferences(String tempId, String realId) async {
+    if (!_config.rewriteLocalReferences) return;
+    for (final binding in _bindings.values) {
+      try {
+        await binding.rewriteLocalReferences(tempId, realId);
+      } catch (e) {
+        _lastError = 'Could not rewrite local references to $tempId in '
+            '${binding.name}: $e';
+      }
+    }
+  }
+
   /// Undoes the optimistic local write behind a permanently failed
   /// operation, so the UI stops showing data the backend rejected.
   Future<void> _rollback(SyncOperation op) async {
@@ -526,7 +623,7 @@ class SyncEngine {
     if (binding == null) return;
     try {
       await binding.applyRollback(op.entityId, op.rollbackPayload);
-      _eventsController.add(RollbackPerformed(op));
+      _emit(RollbackPerformed(op));
     } catch (_) {
       // A failed rollback must not mask the original failure, which is
       // already recorded on the operation.
@@ -557,7 +654,7 @@ class SyncEngine {
         updatedAt: DateTime.now(),
       );
       await _queue.updateOperation(blocked);
-      _eventsController.add(OperationBlocked(blocked, reason));
+      _emit(OperationBlocked(blocked, reason));
     }
   }
 
@@ -617,32 +714,51 @@ class SyncEngine {
           .where((op) => op.collection == binding.name && op.isPending)
           .map((op) => op.entityId)
           .toSet();
-      final since = _lastPulledAt[binding.name];
       final startedAt = DateTime.now();
       try {
+        final since = await _pullCursor(binding.name);
         final outcome = await _withTimeout(
           () => binding.pull(since: since, skipEntityIds: protectedIds),
         );
         _lastPulledAt[binding.name] = startedAt;
+        await _metadata.write(
+            _pullCursorKey(binding.name), startedAt.toUtc().toIso8601String());
         applied += outcome.applied;
-        _eventsController.add(PullCompleted(
+        _emit(PullCompleted(
           collection: binding.name,
           applied: outcome.applied,
           skipped: outcome.skipped,
         ));
       } on SyncFailure catch (e) {
         _lastError = e.message;
-        _eventsController.add(PullFailed(binding.name, e));
+        _emit(PullFailed(binding.name, e));
       } catch (e) {
         _lastError = e.toString();
-        _eventsController
-            .add(PullFailed(binding.name, UnknownFailure(e.toString())));
+        _emit(PullFailed(binding.name, UnknownFailure(e.toString())));
       }
     }
     _notifyRuntimeChange();
     return applied;
   }
 
-  /// When [pullNow] last succeeded for [collection], or `null` if never.
+  /// When [pullNow] last succeeded for [collection], or `null` if it hasn't
+  /// in this process yet. A cursor saved by an earlier run is loaded on the
+  /// first pull; use [loadLastPulledAt] to read it before then.
   DateTime? lastPulledAt(String collection) => _lastPulledAt[collection];
+
+  /// Like [lastPulledAt], but also checks the [SyncMetadataStore], so it
+  /// sees a cursor saved by an earlier run.
+  Future<DateTime?> loadLastPulledAt(String collection) =>
+      _pullCursor(collection);
+
+  static String _pullCursorKey(String collection) => 'pull.since.$collection';
+
+  Future<DateTime?> _pullCursor(String collection) async {
+    final cached = _lastPulledAt[collection];
+    if (cached != null) return cached;
+    final raw = await _metadata.read(_pullCursorKey(collection));
+    final parsed = raw == null ? null : DateTime.tryParse(raw);
+    if (parsed != null) _lastPulledAt[collection] = parsed;
+    return parsed;
+  }
 }

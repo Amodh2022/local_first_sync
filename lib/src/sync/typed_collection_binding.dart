@@ -1,6 +1,7 @@
 import '../conflict/conflict_resolver.dart';
 import '../core/identifiable.dart';
 import '../core/sync_operation.dart';
+import '../dependency/temp_id_registry.dart';
 import '../remote/remote_store.dart';
 import '../serialization/serializer.dart';
 import '../storage/local_store.dart';
@@ -33,22 +34,38 @@ class TypedCollectionBinding<T extends Identifiable>
 
   @override
   Future<Map<String, Object?>> remoteCreate(
-      Map<String, Object?> payload) async {
-    final result = await remoteStore.create(serializer.decode(payload));
+    Map<String, Object?> payload, {
+    String? idempotencyKey,
+  }) async {
+    final item = serializer.decode(payload);
+    final remote = remoteStore;
+    final result = remote is IdempotentRemoteStore<T> && idempotencyKey != null
+        ? await remote.createWithKey(item, idempotencyKey: idempotencyKey)
+        : await remote.create(item);
     return serializer.encode(result);
   }
 
   @override
   Future<Map<String, Object?>> remoteUpdate(
     String id,
-    Map<String, Object?> payload,
-  ) async {
-    final result = await remoteStore.update(serializer.decode(payload));
+    Map<String, Object?> payload, {
+    String? idempotencyKey,
+  }) async {
+    final item = serializer.decode(payload);
+    final remote = remoteStore;
+    final result = remote is IdempotentRemoteStore<T> && idempotencyKey != null
+        ? await remote.updateWithKey(item, idempotencyKey: idempotencyKey)
+        : await remote.update(item);
     return serializer.encode(result);
   }
 
   @override
-  Future<void> remoteDelete(String id) => remoteStore.delete(id);
+  Future<void> remoteDelete(String id, {String? idempotencyKey}) {
+    final remote = remoteStore;
+    return remote is IdempotentRemoteStore<T> && idempotencyKey != null
+        ? remote.deleteWithKey(id, idempotencyKey: idempotencyKey)
+        : remote.delete(id);
+  }
 
   @override
   Future<String> applyCreateResult(
@@ -74,6 +91,21 @@ class TypedCollectionBinding<T extends Identifiable>
 
   @override
   Future<void> applyDeleteResult(String id) => localStore.delete(id);
+
+  @override
+  Future<int> rewriteLocalReferences(String tempId, String realId) async {
+    if (referenceFields.isEmpty) return 0;
+    final mapping = TempIdRegistry()..register(tempId, realId);
+    var changed = 0;
+    for (final item in await localStore.getAll()) {
+      final payload = serializer.encode(item);
+      final rewritten = mapping.rewritePayload(payload, referenceFields);
+      if (identical(rewritten, payload)) continue;
+      await localStore.update(serializer.decode(rewritten));
+      changed++;
+    }
+    return changed;
+  }
 
   @override
   bool get supportsPull => remoteStore is PullableRemoteStore<T>;

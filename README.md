@@ -114,9 +114,11 @@ await orderItems.save(
 `orders`'s `RemoteStore` is registered with `referenceFields: ['orderId']` on the
 `OrderItem` collection's registration, so once the order's `create` returns a
 server-assigned id, `TempIdRegistry` maps `temp_order_1 -> <server id>` and every
-still-queued `OrderItem` operation's `orderId` is rewritten before it syncs. See
-[`DESIGN.md` §6](DESIGN.md#6-dependency-model) for the exact propagation boundaries
-(already-persisted local rows are **not** auto-rewritten — that's an adapter concern).
+still-queued `OrderItem` operation's `orderId` is rewritten before it syncs. Rows already
+in local storage that reference `temp_order_1` through a declared reference field are
+rewritten too, so the UI never shows a dangling temporary id. That costs one scan of
+each collection declaring `referenceFields`, per create whose id changes; turn it off
+with `SyncConfig(rewriteLocalReferences: false)` if your `LocalStore` already handles it.
 
 ### Conflict resolution
 
@@ -173,10 +175,42 @@ methods against it — `SyncOperation.toJson`/`fromJson` do the encoding for you
 operation that was in flight when the process died comes back `ready` and is re-sent
 under its original `idempotencyKey`, which is what that key is for.
 
+To make that re-send safe on the server side, have your remote adapter implement
+`IdempotentRemoteStore<T>`: the engine then calls `createWithKey`/`updateWithKey`/
+`deleteWithKey` with the operation's key (stable across retries, coalescing and restarts),
+which you forward to your backend — typically as an `Idempotency-Key` header.
+`RestRemoteStore` from `local_first_sync_rest` does this for you.
+
+### Expired tokens and rate limits
+
+```dart
+final sync = OfflineSync(
+  config: SyncConfig(
+    onAuthFailure: (failure) async =>
+        await auth.refresh() ? AuthRecovery.retry : AuthRecovery.pause,
+  ),
+);
+```
+
+When a remote call throws `AuthFailure`, the engine asks `onAuthFailure` what to do
+before failing the operation:
+- `retry` re-sends the operation once, without using up its retry budget.
+- `pause` stops syncing and keeps the write queued until `resume()`.
+- `fail` fails the operation, which is also what happens with no handler.
+
+If several operations in one batch hit the same expired token, they share a single call
+to the handler. An operation that is rejected again right after a refresh fails instead
+of looping.
+
+For rate limiting, throw `NetworkFailure(message, retryAfter: ...)` (or
+`ServerFailure(503, message, retryAfter: ...)`). The engine then waits at least that
+long before the next attempt, even if its own backoff would retry sooner.
+`RestRemoteStore` fills this in from the `Retry-After` header.
+
 ### Operating the queue
 
 ```dart
-sync.pause();                          // e.g. on a 401, while you refresh the token
+sync.pause();                          // e.g. while the user signs back in
 sync.resume();                         // writes kept queuing the whole time
 await sync.retryOperation(opId);       // the "Retry" button next to a failed row
 await sync.retryAllFailed();           // returns how many were requeued
@@ -202,6 +236,20 @@ await sync.pullNow();                                  // or SyncConfig(pullInte
 A pull **never overwrites an entity that still has unsynced work queued** — that write is
 the user's and it hasn't reached the backend yet. The `PullCompleted` event reports how
 many records were applied and how many were skipped for that reason.
+
+Give `OfflineSync` a `SyncMetadataStore` and each collection's pull position survives
+restarts. Without one, the first pull after every launch passes `since: null`, which
+re-downloads everything:
+
+```dart
+final sync = OfflineSync(
+  metadataStore: DriftMetadataStore(db), // from local_first_sync_drift
+);
+print(await sync.lastPulledAt('users'));  // includes a cursor from the last run
+```
+
+`SyncMetadataStore` has just two methods, `read` and `write`, so it's also easy to back
+with SharedPreferences or a file.
 
 ### Priority, coalescing and rollback
 
@@ -249,7 +297,16 @@ for (final op in snapshot.operations) {
   print(inspector.explain(op));
 }
 inspector.watch().listen((s) => updateSyncBadge(s));
+
+// The recent event trail, including events from before this screen opened:
+for (final event in inspector.historyFor(failedOp.operationId)) {
+  print('${event.timestamp} ${event.runtimeType}');   // Started, Failed(error), ...
+}
 ```
+
+The engine keeps the last `SyncConfig.eventHistoryLimit` events (100 by default; `0`
+turns the history off). `explain` says what state an operation is in now, and
+`historyFor` shows how it got there. The same `redactedFields` apply to both.
 
 ## Performance: how to get the most out of it
 
@@ -283,7 +340,8 @@ things are on you as the integrator:
    aggressively a flaky network is hammered; `maxAttempts` (default unbounded) should
    usually be set for anything that isn't safe to retry forever. Throw the specific
    `SyncFailure` subtype from your `RemoteStore` (`NetworkFailure`, `TimeoutFailure`,
-   `ServerFailure(statusCode, ...)`, `ValidationFailure`, `AuthFailure`, `ConflictFailure`) —
+   `ServerFailure(statusCode, ...)`, `ValidationFailure`, `AuthFailure`, `ConflictFailure`,
+   with `retryAfter` set when the server says how long to wait) —
    the engine's retry/backoff decision is driven entirely by `SyncFailure.retryable`, not by
    inspecting exception messages, so misclassifying an error (e.g. letting a raw `HttpException`
    escape as `UnknownFailure`) either wastes retries on a permanent failure or gives up on a
@@ -761,16 +819,27 @@ Whatever the setup: one instance, `start()` once, `dispose()` once.
 - **Don't hold the engine in a widget's `State`.** A hot reload or a route pop will dispose
   the queue out from under in-flight operations.
 
-## Production adapters (what you still need to write)
+## Production adapters
 
 `InMemoryLocalStore<T>` and `InMemoryRemoteStore<T>` are test/prototyping doubles, not
-production adapters (per [`DESIGN.md`](DESIGN.md#3-core-domain-model-mvp)). Before shipping:
+production adapters. Two first-party adapter packages cover the common case:
 
-- Implement `LocalStore<T>` against real persistence (Drift/sqlite3 is the intended first
-  adapter — `local_first_sync_drift`, not yet built) so writes/queue state survive app restarts.
-- Implement `RemoteStore<T>` against your actual backend, throwing the appropriate
-  `SyncFailure` subtype (see [Performance](#performance-how-to-get-the-most-out-of-it) point 5)
-  rather than letting raw HTTP exceptions escape.
+- **[`local_first_sync_drift`](https://pub.dev/packages/local_first_sync_drift)** —
+  `DriftLocalStore<T>` (persistent `LocalStore` over one generic Drift table, reusing your
+  `Serializer<T>`; no codegen on your side) and `DriftOperationStore` (a per-row
+  `SyncOperationStore` for `PersistentSyncQueue`).
+- **[`local_first_sync_rest`](https://pub.dev/packages/local_first_sync_rest)** —
+  `RestRemoteStore<T>` over `package:http`: maps HTTP status codes to the right
+  `SyncFailure`, sends each operation's `Idempotency-Key`, and (as
+  `PullableRestRemoteStore<T>`) supports pull sync.
+
+If your stack is different, implement the interfaces yourself:
+
+- `LocalStore<T>` against real persistence, so writes survive app restarts.
+- `RemoteStore<T>` against your actual backend, throwing the appropriate `SyncFailure`
+  subtype (see [Performance](#performance-how-to-get-the-most-out-of-it) point 5) rather
+  than letting raw HTTP exceptions escape. Also implement `IdempotentRemoteStore<T>` if your
+  backend accepts idempotency keys.
 - Swap `InMemorySyncQueue` for `PersistentSyncQueue` with a real `SyncOperationStore`, or
   unsynced writes die with the process.
 - If you don't have a platform connectivity plugin wired up, `ManualConnectivityMonitor`
@@ -795,3 +864,6 @@ walkthrough of every behavior (`cd example && dart run bin/local_first_sync_exam
 
 See [`DESIGN.md`](DESIGN.md) for the architecture rationale and staged roadmap
 (CRDT-style merge and the state-management adapter packages remain out of scope).
+
+The adapter packages live under `packages/` in this repository; each has its own
+`dart pub get` / `dart test`.

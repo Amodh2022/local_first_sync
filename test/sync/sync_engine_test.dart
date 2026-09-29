@@ -116,6 +116,44 @@ void main() {
     expect(attempts, 3);
   });
 
+  test('every attempt carries the operation\'s idempotency key', () async {
+    var attempts = 0;
+    final remoteUsers = InMemoryRemoteStore<TestUser>(
+      failureInjector: (op, item) =>
+          ++attempts < 3 ? const NetworkFailure('offline') : null,
+    );
+    final sync = OfflineSync(
+      config: const SyncConfig(
+        retryPolicy: RetryPolicy(
+          initialDelay: Duration(milliseconds: 1),
+          maxDelay: Duration(milliseconds: 5),
+        ),
+      ),
+    );
+    final users = sync.registerCollection<TestUser>(
+      name: 'users',
+      localStore: InMemoryLocalStore<TestUser>(),
+      remoteStore: remoteUsers,
+      serializer: const TestUserSerializer(),
+    );
+
+    final opId = await users.save(TestUser(id: '1', name: 'Amodh'));
+    final key = (await _findOp(sync, opId)).idempotencyKey;
+
+    SyncOperation op;
+    var iterations = 0;
+    do {
+      await sync.syncNow();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      op = await _findOp(sync, opId);
+      iterations++;
+    } while (op.status != SyncStatus.synced && iterations < 20);
+
+    expect(op.status, SyncStatus.synced);
+    expect(remoteUsers.receivedIdempotencyKeys, [key, key, key]);
+    expect(remoteUsers.appliedWrites, 1);
+  });
+
   test('a permanently failed operation blocks its dependents with a reason',
       () async {
     final localOrders = InMemoryLocalStore<TestUser>();
