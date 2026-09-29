@@ -435,19 +435,21 @@ class SyncEngine {
 
       switch (op.type) {
         case SyncOperationType.create:
-          final result =
-              await _withTimeout(() => binding.remoteCreate(payload));
+          final result = await _withTimeout(() =>
+              binding.remoteCreate(payload, idempotencyKey: op.idempotencyKey));
           final finalId = await binding.applyCreateResult(op.entityId, result);
           if (finalId != op.entityId) {
             tempIds.register(op.entityId, finalId);
             await _rewriteDependentPayloads(op.operationId);
           }
         case SyncOperationType.update:
-          final result = await _withTimeout(
-              () => binding.remoteUpdate(op.entityId, payload));
+          final result = await _withTimeout(() => binding.remoteUpdate(
+              op.entityId, payload,
+              idempotencyKey: op.idempotencyKey));
           await binding.applyUpdateResult(op.entityId, result);
         case SyncOperationType.delete:
-          await _withTimeout(() => binding.remoteDelete(op.entityId));
+          await _withTimeout(() => binding.remoteDelete(op.entityId,
+              idempotencyKey: op.idempotencyKey));
           await binding.applyDeleteResult(op.entityId);
       }
 

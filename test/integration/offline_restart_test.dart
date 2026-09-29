@@ -61,4 +61,58 @@ void main() {
         .firstWhere((o) => o.operationId == opId);
     expect(op.status, SyncStatus.synced);
   });
+
+  test(
+      'a write the server applied but never acknowledged is re-sent after a '
+      'restart and deduplicated by its idempotency key', () async {
+    final store = InMemoryOperationStore();
+    final localUsers = InMemoryLocalStore<TestUser>();
+    final remoteUsers = InMemoryRemoteStore<TestUser>();
+
+    var sync = OfflineSync(
+      queue: await PersistentSyncQueue.open(store),
+      connectivity:
+          ManualConnectivityMonitor(initial: ConnectivityState.offline),
+    );
+    final users = sync.registerCollection<TestUser>(
+      name: 'users',
+      localStore: localUsers,
+      remoteStore: remoteUsers,
+      serializer: const TestUserSerializer(),
+    );
+    final opId = await users.save(TestUser(id: '1', name: 'Amodh'));
+    final queued = (await sync.inspector().snapshot())
+        .operations
+        .firstWhere((o) => o.operationId == opId);
+    await sync.dispose();
+
+    // The request reached the server, then the process died before the
+    // response came back: the row is still `syncing` on disk.
+    await remoteUsers.createWithKey(TestUser(id: '1', name: 'Amodh'),
+        idempotencyKey: queued.idempotencyKey);
+    final row = (await store.readAll()).single;
+    await store.write({...row, 'status': SyncStatus.syncing.name});
+
+    sync = OfflineSync(
+      queue: await PersistentSyncQueue.open(store),
+      connectivity:
+          ManualConnectivityMonitor(initial: ConnectivityState.online),
+    );
+    sync.registerCollection<TestUser>(
+      name: 'users',
+      localStore: localUsers,
+      remoteStore: remoteUsers,
+      serializer: const TestUserSerializer(),
+    );
+    await sync.syncNow();
+
+    final op = (await sync.inspector().snapshot())
+        .operations
+        .firstWhere((o) => o.operationId == opId);
+    expect(op.status, SyncStatus.synced);
+    expect(remoteUsers.receivedIdempotencyKeys,
+        [queued.idempotencyKey, queued.idempotencyKey]);
+    expect(remoteUsers.appliedWrites, 1);
+    await sync.dispose();
+  });
 }

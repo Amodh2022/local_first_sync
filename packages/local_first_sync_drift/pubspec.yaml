@@ -1,0 +1,27 @@
+name: local_first_sync_drift
+description: >-
+  Drift adapter for local_first_sync: a persistent LocalStore over one generic
+  table (no codegen in your app) and a per-row SyncOperationStore for the
+  crash-safe queue.
+version: 0.1.0
+repository: https://github.com/Amodh2022/local_first_sync/tree/main/packages/local_first_sync_drift
+issue_tracker: https://github.com/Amodh2022/local_first_sync/issues
+topics:
+  - offline-first
+  - local-first
+  - sync
+  - drift
+  - sqlite
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  drift: ^2.35.0
+  local_first_sync: ^0.2.0
+
+dev_dependencies:
+  build_runner: ^2.4.0
+  drift_dev: ^2.35.0
+  lints: ^6.0.0
+  test: ^1.26.0

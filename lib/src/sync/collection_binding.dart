@@ -12,14 +12,21 @@ abstract class CollectionBinding {
   /// sent.
   List<String> get referenceFields;
 
-  Future<Map<String, Object?>> remoteCreate(Map<String, Object?> payload);
+  /// The `remote*` methods receive the operation's
+  /// [SyncOperation.idempotencyKey] so it can be forwarded to an
+  /// [IdempotentRemoteStore].
+  Future<Map<String, Object?>> remoteCreate(
+    Map<String, Object?> payload, {
+    String? idempotencyKey,
+  });
 
   Future<Map<String, Object?>> remoteUpdate(
     String id,
-    Map<String, Object?> payload,
-  );
+    Map<String, Object?> payload, {
+    String? idempotencyKey,
+  });
 
-  Future<void> remoteDelete(String id);
+  Future<void> remoteDelete(String id, {String? idempotencyKey});
 
   /// Applies a successful create's server response back to local storage,
   /// reassigning [tempId] if the server returned a different id. Returns the

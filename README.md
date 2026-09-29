@@ -173,6 +173,12 @@ methods against it — `SyncOperation.toJson`/`fromJson` do the encoding for you
 operation that was in flight when the process died comes back `ready` and is re-sent
 under its original `idempotencyKey`, which is what that key is for.
 
+To make that re-send safe on the server side, have your remote adapter implement
+`IdempotentRemoteStore<T>`: the engine then calls `createWithKey`/`updateWithKey`/
+`deleteWithKey` with the operation's key (stable across retries, coalescing and restarts),
+which you forward to your backend — typically as an `Idempotency-Key` header.
+`RestRemoteStore` from `local_first_sync_rest` does this for you.
+
 ### Operating the queue
 
 ```dart
@@ -761,16 +767,27 @@ Whatever the setup: one instance, `start()` once, `dispose()` once.
 - **Don't hold the engine in a widget's `State`.** A hot reload or a route pop will dispose
   the queue out from under in-flight operations.
 
-## Production adapters (what you still need to write)
+## Production adapters
 
 `InMemoryLocalStore<T>` and `InMemoryRemoteStore<T>` are test/prototyping doubles, not
-production adapters (per [`DESIGN.md`](DESIGN.md#3-core-domain-model-mvp)). Before shipping:
+production adapters. Two first-party adapter packages cover the common case:
 
-- Implement `LocalStore<T>` against real persistence (Drift/sqlite3 is the intended first
-  adapter — `local_first_sync_drift`, not yet built) so writes/queue state survive app restarts.
-- Implement `RemoteStore<T>` against your actual backend, throwing the appropriate
-  `SyncFailure` subtype (see [Performance](#performance-how-to-get-the-most-out-of-it) point 5)
-  rather than letting raw HTTP exceptions escape.
+- **[`local_first_sync_drift`](https://pub.dev/packages/local_first_sync_drift)** —
+  `DriftLocalStore<T>` (persistent `LocalStore` over one generic Drift table, reusing your
+  `Serializer<T>`; no codegen on your side) and `DriftOperationStore` (a per-row
+  `SyncOperationStore` for `PersistentSyncQueue`).
+- **[`local_first_sync_rest`](https://pub.dev/packages/local_first_sync_rest)** —
+  `RestRemoteStore<T>` over `package:http`: maps HTTP status codes to the right
+  `SyncFailure`, sends each operation's `Idempotency-Key`, and (as
+  `PullableRestRemoteStore<T>`) supports pull sync.
+
+If your stack is different, implement the interfaces yourself:
+
+- `LocalStore<T>` against real persistence, so writes survive app restarts.
+- `RemoteStore<T>` against your actual backend, throwing the appropriate `SyncFailure`
+  subtype (see [Performance](#performance-how-to-get-the-most-out-of-it) point 5) rather
+  than letting raw HTTP exceptions escape. Also implement `IdempotentRemoteStore<T>` if your
+  backend accepts idempotency keys.
 - Swap `InMemorySyncQueue` for `PersistentSyncQueue` with a real `SyncOperationStore`, or
   unsynced writes die with the process.
 - If you don't have a platform connectivity plugin wired up, `ManualConnectivityMonitor`
@@ -795,3 +812,6 @@ walkthrough of every behavior (`cd example && dart run bin/local_first_sync_exam
 
 See [`DESIGN.md`](DESIGN.md) for the architecture rationale and staged roadmap
 (CRDT-style merge and the state-management adapter packages remain out of scope).
+
+The adapter packages live under `packages/` in this repository; each has its own
+`dart pub get` / `dart test`.

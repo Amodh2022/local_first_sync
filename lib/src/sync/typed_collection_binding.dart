@@ -33,22 +33,38 @@ class TypedCollectionBinding<T extends Identifiable>
 
   @override
   Future<Map<String, Object?>> remoteCreate(
-      Map<String, Object?> payload) async {
-    final result = await remoteStore.create(serializer.decode(payload));
+    Map<String, Object?> payload, {
+    String? idempotencyKey,
+  }) async {
+    final item = serializer.decode(payload);
+    final remote = remoteStore;
+    final result = remote is IdempotentRemoteStore<T> && idempotencyKey != null
+        ? await remote.createWithKey(item, idempotencyKey: idempotencyKey)
+        : await remote.create(item);
     return serializer.encode(result);
   }
 
   @override
   Future<Map<String, Object?>> remoteUpdate(
     String id,
-    Map<String, Object?> payload,
-  ) async {
-    final result = await remoteStore.update(serializer.decode(payload));
+    Map<String, Object?> payload, {
+    String? idempotencyKey,
+  }) async {
+    final item = serializer.decode(payload);
+    final remote = remoteStore;
+    final result = remote is IdempotentRemoteStore<T> && idempotencyKey != null
+        ? await remote.updateWithKey(item, idempotencyKey: idempotencyKey)
+        : await remote.update(item);
     return serializer.encode(result);
   }
 
   @override
-  Future<void> remoteDelete(String id) => remoteStore.delete(id);
+  Future<void> remoteDelete(String id, {String? idempotencyKey}) {
+    final remote = remoteStore;
+    return remote is IdempotentRemoteStore<T> && idempotencyKey != null
+        ? remote.deleteWithKey(id, idempotencyKey: idempotencyKey)
+        : remote.delete(id);
+  }
 
   @override
   Future<String> applyCreateResult(

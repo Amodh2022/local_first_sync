@@ -37,3 +37,22 @@ abstract interface class PullableRemoteStore<T extends Identifiable>
   /// Throw a `SyncFailure` subtype on failure, as with the write methods.
   Future<List<T>> fetchChanges({DateTime? since});
 }
+
+/// An optional capability a [RemoteStore] can add: receiving each
+/// operation's stable [SyncOperation.idempotencyKey] alongside the write.
+///
+/// The key never changes for the life of an operation — across retries,
+/// coalescing, and an app restart that re-sends an operation which was
+/// in flight when the process died. Forward it to your backend (typically
+/// as an `Idempotency-Key` header) and a re-send can't create a duplicate.
+///
+/// When a [RemoteStore] implements this, the engine calls the `*WithKey`
+/// methods instead of [create]/[update]/[delete].
+abstract interface class IdempotentRemoteStore<T extends Identifiable>
+    implements RemoteStore<T> {
+  Future<T> createWithKey(T item, {required String idempotencyKey});
+
+  Future<T> updateWithKey(T item, {required String idempotencyKey});
+
+  Future<void> deleteWithKey(String id, {required String idempotencyKey});
+}

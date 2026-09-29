@@ -1,3 +1,23 @@
+## 0.2.0
+
+- **Idempotency keys reach the backend.** New opt-in `IdempotentRemoteStore<T>`:
+  when a remote store implements it, the engine calls `createWithKey`/
+  `updateWithKey`/`deleteWithKey` with the operation's `idempotencyKey`, which
+  is stable across retries, coalescing and restarts. Before this, the key was
+  persisted but never passed to the remote store, so a write re-sent after a
+  crash could be applied twice.
+- `InMemoryRemoteStore` implements `IdempotentRemoteStore`. A repeated key
+  returns the first result without applying the write again, and
+  `receivedIdempotencyKeys`/`appliedWrites` expose what happened to tests.
+- **Breaking (only if you implement `CollectionBinding` yourself):**
+  `remoteCreate`/`remoteUpdate`/`remoteDelete` take an optional named
+  `idempotencyKey`. Apps that use `OfflineSync.registerCollection` are
+  unaffected.
+- First-party adapters: `local_first_sync_drift` (persistent `LocalStore` and
+  `SyncOperationStore` on Drift) and `local_first_sync_rest` (`RemoteStore` on
+  `package:http`). They are published as separate packages, so this package
+  still has no runtime dependencies.
+
 ## 0.1.0
 
 First release. Local-first sync for Dart and Flutter: writes land in local

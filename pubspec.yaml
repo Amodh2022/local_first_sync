@@ -3,7 +3,7 @@ description: >-
   Local-first sync for Dart and Flutter: offline writes, a crash-safe queue,
   dependency-ordered operations, temp-id rewriting, and pluggable conflict
   resolution.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/Amodh2022/local_first_sync
 issue_tracker: https://github.com/Amodh2022/local_first_sync/issues
 topics:
@@ -22,3 +22,4 @@ environment:
 dev_dependencies:
   lints: ^4.0.0
   test: ^1.26.0
+

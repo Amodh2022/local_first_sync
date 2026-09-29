@@ -9,7 +9,7 @@ Two things have changed since it was written, and are noted inline below: the pa
 published as `local_first_sync` (the name `offline_sync` was already taken on pub.dev), and
 several items listed here as gaps or deferred work have since been built — pull sync,
 a crash-safe persistent queue, operation coalescing, and queue control. See `CHANGELOG.md`
-for what actually shipped in 0.1.0.
+for what actually shipped.
 
 ---
 
@@ -273,18 +273,11 @@ API is stable — not part of this MVP.
 
 ---
 
-## Next step
+## Status
 
-This is the point to **stop and get approval** before writing any implementation
-code. Please confirm:
-
-1. The differentiator priorities in §1 (dependency-aware sync + temp IDs, then
-   Sync Inspector, then state-mgmt neutrality, then human-readable explanations).
-2. The MVP scope in §10 (push-sync only, no CRDT, no pull-sync yet, no
-   state-management adapters yet).
-3. Whether to start building in-place under `lib/src/` in this single-package repo,
-   or set up a melos monorepo now (`packages/local_first_sync_core`, etc.) before writing
-   any code.
-
-Once confirmed, implementation proceeds incrementally per §10 above, one gated step
-at a time.
+Every step in §10 has been built. Steps 1–6 and 8 shipped in `local_first_sync` 0.1.0;
+step 7 — `local_first_sync_drift` and `local_first_sync_rest` — lives under `packages/`
+in this repository and ships alongside core 0.2.0. The build stayed a single core package
+with sibling adapter packages rather than a melos monorepo. Pull sync, which §10 deferred,
+also shipped (opt-in, via `PullableRemoteStore`). CRDT merge and the state-management
+adapters are still out of scope.
